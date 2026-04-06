@@ -104,7 +104,7 @@ export default function ConfiguracoesPage() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={config[field.key] as boolean}
+                      checked={config[field.key] === true || config[field.key] === 'true'}
                       onChange={(e) => handleChange(field.key, e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 accent-[#1D9E75]"
                     />
