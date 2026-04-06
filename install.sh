@@ -25,23 +25,22 @@ ask()   { echo -e "${BLUE}[?]${NC} $1"; }
 ok()    { echo -e "${GREEN}  ✓${NC} $1"; }
 skip()  { echo -e "${YELLOW}  →${NC} $1 (ja configurado)"; }
 
-# Forcar leitura do /dev/tty (funciona com curl pipe e bash <())
 prompt() {
-  echo -e "${BLUE}[?]${NC} $1" > /dev/tty
-  read -r REPLY < /dev/tty 2>/dev/null || REPLY=""
+  echo -en "${BLUE}[?]${NC} $1 "
+  read -r REPLY
   echo "$REPLY"
 }
 
 prompt_secret() {
-  echo -e "${BLUE}[?]${NC} $1" > /dev/tty
-  read -rs REPLY < /dev/tty 2>/dev/null || REPLY=""
-  echo "" > /dev/tty
+  echo -en "${BLUE}[?]${NC} $1 "
+  read -rs REPLY
+  echo ""
   echo "$REPLY"
 }
 
 prompt_confirm() {
-  echo -e "${BLUE}[?]${NC} $1 (s/n)" > /dev/tty
-  read -r REPLY < /dev/tty 2>/dev/null || REPLY="s"
+  echo -en "${BLUE}[?]${NC} $1 (s/n) "
+  read -r REPLY
   [[ "$REPLY" == "s" || "$REPLY" == "S" || "$REPLY" == "y" || "$REPLY" == "Y" ]]
 }
 
