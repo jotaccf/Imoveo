@@ -39,6 +39,10 @@
 - [x] Comparacao YoY (ano vs ano anterior)
 - [x] Alertas automaticos por threshold (yield, ocupacao, racio, margem)
 - [x] Dashboard de gestao de contratos (expiracoes, renovacoes, projecao receita)
+- [x] Validacao de contrato unico por fracao (impede duplicados)
+- [x] Indicador de versao no sidebar
+- [x] Sudoers expandido para deploy (nginx, mkdir, cp, chown, ln, rm)
+- [x] update.sh auto-configura cron, manutencao e nginx no host
 
 ## v1.2.0 — Electron Desktop 📋 Planned
 - [ ] Electron wrapper com PostgreSQL embutido
