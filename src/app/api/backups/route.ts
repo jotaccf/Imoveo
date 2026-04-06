@@ -58,6 +58,30 @@ function runPgDump(filepath: string): void {
   }
 }
 
+function runDropSchema(): void {
+  const url = new URL(DB_URL)
+  const host = url.hostname
+  const port = url.port || '5432'
+  const user = url.username
+  const password = url.password
+  const database = url.pathname.replace('/', '')
+
+  const dropSQL = "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;"
+
+  if (isWindows) {
+    const containerName = 'imoveo-postgres-1'
+    execSync(
+      `docker exec -e PGPASSWORD=${password} ${containerName} psql -U ${user} ${database} -c "${dropSQL}"`,
+      { timeout: 30000 }
+    )
+  } else {
+    execSync(
+      `PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database} -c "${dropSQL}"`,
+      { timeout: 30000 }
+    )
+  }
+}
+
 function runPgRestore(filepath: string, isGzip: boolean): void {
   const url = new URL(DB_URL)
   const host = url.hostname
@@ -66,10 +90,12 @@ function runPgRestore(filepath: string, isGzip: boolean): void {
   const password = url.password
   const database = url.pathname.replace('/', '')
 
+  // Limpar schema antes de restaurar para evitar conflitos
+  runDropSchema()
+
   if (isWindows) {
     const containerName = 'imoveo-postgres-1'
     if (isGzip) {
-      // No Windows não temos gunzip nativo, copiar para container
       execSync(`docker cp "${filepath}" ${containerName}:/tmp/restore.sql.gz`, { timeout: 30000 })
       execSync(`docker exec ${containerName} bash -c "gunzip -c /tmp/restore.sql.gz | PGPASSWORD='${password}' psql -U ${user} ${database}"`, { timeout: 120000 })
     } else {

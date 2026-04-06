@@ -7,6 +7,30 @@ import { execSync } from 'child_process'
 const isWindows = process.platform === 'win32'
 const DB_URL = process.env.DATABASE_URL || ''
 
+function runDropSchema(): void {
+  const url = new URL(DB_URL)
+  const host = url.hostname
+  const port = url.port || '5432'
+  const user = url.username
+  const password = url.password
+  const database = url.pathname.replace('/', '')
+
+  const dropSQL = "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;"
+
+  if (isWindows) {
+    const containerName = 'imoveo-postgres-1'
+    execSync(
+      `docker exec -e PGPASSWORD=${password} ${containerName} psql -U ${user} ${database} -c "${dropSQL}"`,
+      { timeout: 30000 }
+    )
+  } else {
+    execSync(
+      `PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database} -c "${dropSQL}"`,
+      { timeout: 30000 }
+    )
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await auth()
@@ -36,6 +60,9 @@ export async function POST(req: Request) {
     const database = url.pathname.replace('/', '')
 
     const isGzip = filename.endsWith('.gz')
+
+    // Limpar schema antes de importar para evitar conflitos
+    runDropSchema()
 
     if (isWindows) {
       const containerName = 'imoveo-postgres-1'
