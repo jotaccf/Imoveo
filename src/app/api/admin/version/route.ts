@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { requirePermission, type Role } from '@/lib/permissions'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { debugLog } from '@/lib/debug-logger'
 
 function getLocalVersion(): string {
   try {
@@ -50,6 +51,10 @@ export async function GET() {
     const remote = await getRemoteVersion()
 
     const updateAvailable = remote ? isNewer(remote.version, local) : false
+
+    if (updateAvailable) {
+      debugLog('version', `Update disponivel: ${local} -> ${remote?.version}`)
+    }
 
     return Response.json({
       data: {

@@ -4,6 +4,7 @@ import { requirePermission, type Role } from '@/lib/permissions'
 import { execSync } from 'child_process'
 import { readdirSync, statSync, unlinkSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
+import { debugLog, debugError } from '@/lib/debug-logger'
 
 const isWindows = process.platform === 'win32'
 const BACKUP_DIR = process.env.BACKUP_DIR || (isWindows ? join(process.cwd(), 'backups') : '/opt/backups/imoveo')
@@ -91,7 +92,9 @@ function runPgRestore(filepath: string, isGzip: boolean): void {
   const database = url.pathname.replace('/', '')
 
   // Limpar schema antes de restaurar para evitar conflitos
+  debugLog('backup/restore', 'A limpar schema (DROP CASCADE)...')
   runDropSchema()
+  debugLog('backup/restore', 'Schema limpo, a restaurar backup...')
 
   if (isWindows) {
     const containerName = 'imoveo-postgres-1'
@@ -150,7 +153,7 @@ export async function POST() {
       message: `Backup criado: ${filename}${isWindows ? '' : '.gz'}`,
     }, { status: 201 })
   } catch (e) {
-    console.error('[backup] Error:', e)
+    debugError('backup/create', e)
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
     return Response.json({ error: 'Erro ao criar backup', details: String(e) }, { status: 500 })
   }
@@ -199,7 +202,7 @@ export async function PUT(req: NextRequest) {
 
     return Response.json({ message: `Backup restaurado: ${filename}` })
   } catch (e) {
-    console.error('[restore] Error:', e)
+    debugError('backup/restore', e)
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
     return Response.json({ error: 'Erro ao restaurar backup', details: String(e) }, { status: 500 })
   }
