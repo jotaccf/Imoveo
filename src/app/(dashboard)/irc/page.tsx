@@ -178,7 +178,7 @@ export default function IRCPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
               <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6B7280' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
               <Line type="monotone" dataKey="ircAcumulado" name="IRC Acumulado" stroke="#633806" strokeWidth={2} dot={{ r: 3, fill: '#633806' }} />
             </LineChart>
           </ResponsiveContainer>

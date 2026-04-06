@@ -37,7 +37,7 @@ interface Lancamento {
 }
 
 interface ImovelOption { id: string; nome: string; codigo: string }
-interface RubricaOption { id: string; nome: string; tipo: string }
+interface RubricaOption { id: string; nome: string; codigo: string; tipo: string }
 
 const TIPO_DOC_OPTIONS = [
   { value: 'RECIBO_VERDE', label: 'Recibo Verde' },
@@ -75,11 +75,31 @@ const TIPO_DEFAULTS: Record<string, { taxaIva: string; retencaoFonte: string }> 
 
 const MESES_NOMES = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-const emptyForm: Record<string, unknown> = {
+interface LancamentoForm {
+  tipoDoc: string
+  numeroDoc: string
+  fornecedor: string
+  nifFornecedor: string
+  imovelId: string
+  rubricaId: string
+  dataDoc: string
+  valorSemIva: string
+  taxaIva: string
+  totalComIva: string
+  retencaoFonte: string
+  recorrente: boolean
+  periodicidade: string
+  dataFim: string
+  notas: string
+  mesesSelecionados: string[]
+  mesesDocs: Record<string, { doc?: string; data?: string }>
+}
+
+const emptyForm: LancamentoForm = {
   tipoDoc: 'RECIBO_VERDE', numeroDoc: '', fornecedor: '', nifFornecedor: '',
   imovelId: '', rubricaId: '', dataDoc: '', valorSemIva: '', taxaIva: '23',
   totalComIva: '', retencaoFonte: '25', recorrente: false, periodicidade: '', dataFim: '', notas: '',
-  mesesSelecionados: [] as string[], mesesDocs: {} as Record<string, { doc?: string; data?: string }>,
+  mesesSelecionados: [], mesesDocs: {},
 }
 
 export default function LancamentosPage() {
@@ -99,7 +119,7 @@ export default function LancamentosPage() {
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 })
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<LancamentoForm>(emptyForm)
   const [loading, setLoading] = useState(true)
 
   function resetPage() { setPage(1) }
@@ -173,6 +193,8 @@ export default function LancamentosPage() {
       periodicidade: l.periodicidade ?? '',
       dataFim: l.dataFim ? l.dataFim.split('T')[0] : '',
       notas: l.notas ?? '',
+      mesesSelecionados: [],
+      mesesDocs: {},
     })
     setModalOpen(true)
   }

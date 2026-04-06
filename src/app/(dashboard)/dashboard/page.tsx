@@ -238,7 +238,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="mes" tick={{ fontSize: 10, fill: '#6B7280' }} />
                 <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="receita" name="Receita" fill="#1D9E75" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="custos" name="Custos" fill="#D1D5DB" radius={[3, 3, 0, 0]} />
@@ -258,7 +258,7 @@ export default function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis type="number" tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(v: number) => `${v}%`} />
                   <YAxis type="category" dataKey="nome" tick={{ fontSize: 10, fill: '#6B7280' }} width={55} />
-                  <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                  <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
                   <Bar dataKey="margem" name="Margem %" radius={[0, 3, 3, 0]}>
                     {rentabilidade.map((entry: { fill: string }, i: number) => (
                       <rect key={i} fill={entry.fill} />

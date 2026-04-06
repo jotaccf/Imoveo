@@ -335,7 +335,7 @@ export default function ImovelDetailPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6B7280' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="receita" name="Receita" fill="#1D9E75" radius={[2, 2, 0, 0]} />
                 <Bar dataKey="custos" name="Custos" fill="#9CA3AF" radius={[2, 2, 0, 0]} />
