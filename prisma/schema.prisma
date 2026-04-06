@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  GESTOR
+  OPERADOR
+}
+
+enum TipoImovel {
+  APARTAMENTO
+  MORADIA
+  LOJA
+  ESCRITORIO
+  OUTRO
+  GERAL
+  PESSOAL
+}
+
+enum EstadoImovel {
+  ACTIVO
+  VAGO
+  EM_OBRAS
+  INACTIVO
+}
+
+enum TipoEntidade {
+  FORNECEDOR
+  INQUILINO
+  PROPRIETARIO
+  OUTRO
+}
+
+enum TipoRubrica {
+  RECEITA
+  GASTO
+}
+
+enum TipoFicheiro {
+  EMITIDAS
+  RECEBIDAS
+}
+
+enum OrigemClassificacao {
+  AUTOMATICA
+  MANUAL
+}
+
+enum TipoDocManual {
+  RECIBO_VERDE
+  CONTRATO_RENDA
+  FATURA_PAPEL
+  OUTRO
+}
+
+enum Periodicidade {
+  MENSAL
+  TRIMESTRAL
+  ANUAL
+}
+
+model Utilizador {
+  id           String    @id @default(cuid())
+  nome         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(OPERADOR)
+  ativo        Boolean   @default(true)
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+  ultimoLogin  DateTime?
+
+  @@map("utilizadores")
+}
+
+model Imovel {
+  id              String       @id @default(cuid())
+  codigo          String       @unique
+  nome            String
+  tipo            TipoImovel
+  morada          String?
+  localizacao     String
+  nifProprietario String?
+  valorPatrimonial Decimal?    @db.Decimal(12, 2)
+  areaMt2         Decimal?     @db.Decimal(8, 2)
+  ordem           Int          @default(0)
+  estado          EstadoImovel @default(ACTIVO)
+  ativo           Boolean      @default(true)
+  criadoEm        DateTime     @default(now())
+  atualizadoEm    DateTime     @updatedAt
+
+  nifMaps        NifImovelMap[]
+  classificacoes FaturaClassificacao[]
+  lancamentos    LancamentoManual[]
+  fracoes        Fracao[]
+
+  @@map("imoveis")
+}
+
+model Configuracao {
+  id    String @id @default(cuid())
+  chave String @unique
+  valor String
+
+  @@map("configuracoes")
+}
+
+enum EstadoFracao {
+  OCUPADO
+  VAGO
+  EM_OBRAS
+}
+
+model Fracao {
+  id                  String       @id @default(cuid())
+  imovelId            String
+  nome                String
+  renda               Decimal      @db.Decimal(12, 2)
+  nifInquilino        String?
+  dataEntradaMercado  DateTime?
+  estado              EstadoFracao @default(VAGO)
+  criadoEm            DateTime     @default(now())
+  atualizadoEm        DateTime     @updatedAt
+
+  imovel         Imovel              @relation(fields: [imovelId], references: [id])
+  nifMaps        NifImovelMap[]
+  classificacoes FaturaClassificacao[]
+  lancamentos    LancamentoManual[]
+
+  @@map("fracoes")
+}
+
+model Entidade {
+  id       String       @id @default(cuid())
+  nif      String       @unique
+  nome     String
+  tipo     TipoEntidade @default(FORNECEDOR)
+  criadoEm DateTime     @default(now())
+
+  nifMaps NifImovelMap[]
+
+  @@map("entidades")
+}
+
+model NifImovelMap {
+  id          String   @id @default(cuid())
+  nifEntidade String
+  imovelId    String
+  rubricaId   String
+  fracaoId    String?
+  ativo       Boolean  @default(true)
+  criadoEm    DateTime @default(now())
+
+  imovel   Imovel    @relation(fields: [imovelId], references: [id])
+  rubrica  Rubrica   @relation(fields: [rubricaId], references: [id])
+  entidade Entidade? @relation(fields: [nifEntidade], references: [nif])
+  fracao   Fracao?   @relation(fields: [fracaoId], references: [id])
+
+  @@unique([nifEntidade, imovelId])
+  @@index([nifEntidade])
+  @@map("nif_imovel_map")
+}
+
+model Rubrica {
+  id     String      @id @default(cuid())
+  codigo String      @unique
+  nome   String
+  tipo   TipoRubrica @default(GASTO)
+  ordem  Int         @default(0)
+
+  nifMaps        NifImovelMap[]
+  classificacoes FaturaClassificacao[]
+  lancamentos    LancamentoManual[]
+
+  @@map("rubricas")
+}
+
+model Importacao {
+  id           String       @id @default(cuid())
+  filename     String
+  hashFicheiro String       @unique
+  periodo      String
+  tipoFicheiro TipoFicheiro
+  totalFaturas Int          @default(0)
+  novas        Int          @default(0)
+  duplicadas   Int          @default(0)
+  pendentes    Int          @default(0)
+  criadoEm     DateTime     @default(now())
+
+  faturas Fatura[]
+
+  @@map("importacoes")
+}
+
+model Fatura {
+  id              String   @id @default(cuid())
+  hashFatura      String   @unique
+  nifEmitente     String
+  serieDoc        String
+  numeroDoc       String
+  nifDestinatario String?
+  nomeEmitente    String?
+  dataFatura      DateTime
+  totalSemIva     Decimal  @db.Decimal(12, 2)
+  totalIva        Decimal  @db.Decimal(12, 2)
+  totalComIva     Decimal  @db.Decimal(12, 2)
+  tipoDocumento   String?
+  importacaoId    String
+  criadoEm        DateTime @default(now())
+
+  importacao    Importacao           @relation(fields: [importacaoId], references: [id])
+  classificacao FaturaClassificacao?
+
+  @@unique([nifEmitente, serieDoc, numeroDoc])
+  @@index([nifEmitente])
+  @@index([dataFatura])
+  @@index([nifDestinatario])
+  @@map("faturas")
+}
+
+model FaturaClassificacao {
+  id           String              @id @default(cuid())
+  faturaId     String              @unique
+  imovelId     String
+  rubricaId    String
+  fracaoId     String?
+  origem       OrigemClassificacao @default(AUTOMATICA)
+  confirmado   Boolean             @default(false)
+  criadoEm     DateTime            @default(now())
+  atualizadoEm DateTime            @updatedAt
+
+  fatura  Fatura  @relation(fields: [faturaId], references: [id])
+  imovel  Imovel  @relation(fields: [imovelId], references: [id])
+  rubrica Rubrica @relation(fields: [rubricaId], references: [id])
+  fracao  Fracao? @relation(fields: [fracaoId], references: [id])
+
+  @@map("fatura_classificacao")
+}
+
+model LancamentoManual {
+  id            String         @id @default(cuid())
+  tipoDoc       TipoDocManual  @default(RECIBO_VERDE)
+  numeroDoc     String?
+  fornecedor    String
+  nifFornecedor String?
+  imovelId      String
+  rubricaId     String
+  dataDoc       DateTime
+  valorSemIva     Decimal        @db.Decimal(12, 2)
+  taxaIva         Int            @default(0)
+  totalComIva     Decimal        @db.Decimal(12, 2)
+  retencaoFonte   Int            @default(0)
+  valorRetencao   Decimal?       @db.Decimal(12, 2)
+  recorrente    Boolean        @default(false)
+  periodicidade Periodicidade?
+  dataFim       DateTime?
+  notas         String?
+  fracaoId      String?
+  criadoEm      DateTime       @default(now())
+  atualizadoEm  DateTime       @updatedAt
+
+  imovel  Imovel  @relation(fields: [imovelId], references: [id])
+  rubrica Rubrica @relation(fields: [rubricaId], references: [id])
+  fracao  Fracao? @relation(fields: [fracaoId], references: [id])
+
+  @@index([imovelId])
+  @@index([dataDoc])
+  @@map("lancamentos_manuais")
+}

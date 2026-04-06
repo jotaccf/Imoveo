@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "imoveis" ADD COLUMN     "areaMt2" DECIMAL(8,2),
+ADD COLUMN     "valorPatrimonial" DECIMAL(12,2);
+
+-- CreateTable
+CREATE TABLE "configuracoes" (
+    "id" TEXT NOT NULL,
+    "chave" TEXT NOT NULL,
+    "valor" TEXT NOT NULL,
+
+    CONSTRAINT "configuracoes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "configuracoes_chave_key" ON "configuracoes"("chave");
