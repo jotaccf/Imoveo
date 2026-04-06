@@ -6,13 +6,9 @@ import { execSync } from 'child_process'
 
 const isWindows = process.platform === 'win32'
 
-function safe(fn: () => string): string {
-  try { return fn() } catch (e) { return `ERRO: ${e}` }
-}
-
 function readFileSafe(path: string, tail = 50): string {
   try {
-    if (!existsSync(path)) return `[ficheiro nao encontrado: ${path}]`
+    if (!existsSync(path)) return `[nao encontrado]`
     const content = readFileSync(path, 'utf-8')
     const lines = content.split('\n')
     return lines.slice(-tail).join('\n')
@@ -22,7 +18,14 @@ function readFileSafe(path: string, tail = 50): string {
 function execSafe(cmd: string, timeout = 5000): string {
   try {
     return execSync(cmd, { timeout, encoding: 'utf-8' }).trim()
-  } catch (e) { return `ERRO: ${e}` }
+  } catch { return '' }
+}
+
+function cmdExists(cmd: string): boolean {
+  try {
+    execSync(`which ${cmd}`, { timeout: 2000, encoding: 'utf-8' })
+    return true
+  } catch { return false }
 }
 
 export async function GET() {
@@ -34,13 +37,15 @@ export async function GET() {
     const appDir = process.cwd()
 
     // Versao
-    const version = safe(() => readFileSync(join(appDir, 'VERSION'), 'utf-8').trim())
+    let version = 'desconhecida'
+    try { version = readFileSync(join(appDir, 'VERSION'), 'utf-8').trim() } catch { /* */ }
 
-    // Git info
-    const gitCommit = execSafe('git rev-parse --short HEAD')
-    const gitBranch = execSafe('git rev-parse --abbrev-ref HEAD')
-    const gitLog = execSafe('git log --oneline -10')
-    const gitStatus = execSafe('git status --short')
+    // Git info (só se git estiver disponivel — não existe dentro do container Docker)
+    const hasGit = cmdExists('git')
+    const gitCommit = hasGit ? execSafe('git rev-parse --short HEAD') : 'N/A (container)'
+    const gitBranch = hasGit ? execSafe('git rev-parse --abbrev-ref HEAD') : 'N/A (container)'
+    const gitLog = hasGit ? execSafe('git log --oneline -10') : 'N/A (container)'
+    const gitStatus = hasGit ? (execSafe('git status --short') || '(limpo)') : 'N/A (container)'
 
     // Uptime do processo Node
     const uptimeSeconds = Math.floor(process.uptime())
@@ -59,10 +64,11 @@ export async function GET() {
     // Disco
     const diskUsage = isWindows ? 'N/A (Windows)' : execSafe('df -h / | tail -1')
 
-    // Docker
-    const dockerContainers = isWindows
+    // Docker (não disponivel dentro do container)
+    const hasDocker = cmdExists('docker')
+    const dockerContainers = hasDocker
       ? execSafe('docker ps --format "{{.Names}} {{.Status}}"')
-      : execSafe('docker ps --format "{{.Names}} {{.Status}}" 2>/dev/null || echo "docker nao disponivel"')
+      : 'N/A (dentro do container)'
 
     // Database
     let dbStatus = 'desconhecido'
@@ -100,8 +106,9 @@ export async function GET() {
     // Update flag
     const updateFlagExists = !isWindows && existsSync('/opt/imoveo/UPDATE_REQUESTED')
 
-    // Cron jobs
-    const cronJobs = isWindows ? 'N/A (Windows)' : execSafe('crontab -l 2>/dev/null || echo "sem crontab"')
+    // Cron jobs (corre no host, não no container)
+    const hasCrontab = cmdExists('crontab')
+    const cronJobs = hasCrontab ? (execSafe('crontab -l 2>/dev/null') || 'sem crontab') : 'N/A (corre no host)'
 
     // Ficheiros importantes
     const envProdExists = existsSync(join(appDir, '.env.prod'))
@@ -109,9 +116,10 @@ export async function GET() {
     const maintenanceExists = existsSync(join(appDir, 'maintenance.html'))
     const backupShExists = existsSync(join(appDir, 'backup.sh'))
 
-    // Nginx
-    const nginxStatus = isWindows ? 'N/A (Windows)' : execSafe('nginx -t 2>&1 || echo "nginx nao instalado"')
-    const nginxSitesEnabled = isWindows ? 'N/A' : execSafe('ls -la /etc/nginx/sites-enabled/ 2>/dev/null || echo "N/A"')
+    // Nginx (corre no host, não no container)
+    const hasNginx = cmdExists('nginx')
+    const nginxStatus = hasNginx ? execSafe('nginx -t 2>&1') : 'N/A (corre no host)'
+    const nginxSitesEnabled = hasNginx ? execSafe('ls -la /etc/nginx/sites-enabled/ 2>/dev/null') : 'N/A (corre no host)'
 
     // Timestamps
     const now = new Date().toISOString()
