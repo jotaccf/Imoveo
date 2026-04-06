@@ -274,7 +274,7 @@ else
     echo "${DEPLOY_USER}:${DEPLOY_PASS}" | sudo chpasswd
     warn "Utilizador '$DEPLOY_USER' criado com password: $DEPLOY_PASS"
   fi
-  echo "$DEPLOY_USER ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/docker-compose" | sudo tee /etc/sudoers.d/deploy > /dev/null
+  echo "$DEPLOY_USER ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/docker-compose, /usr/sbin/nginx, /usr/bin/mkdir, /usr/bin/cp, /usr/bin/chown, /usr/bin/tee, /usr/bin/ln, /usr/bin/rm" | sudo tee /etc/sudoers.d/deploy > /dev/null
 fi
 
 # Garantir grupo docker
