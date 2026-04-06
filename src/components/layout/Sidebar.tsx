@@ -42,6 +42,7 @@ export function Sidebar() {
   const { data: session } = useSession()
   const [pendentesCount, setPendentesCount] = useState<number>(0)
   const [alertasCount, setAlertasCount] = useState<number>(0)
+  const [appVersion, setAppVersion] = useState<string>('')
 
   const role = (session?.user as { role?: Role } | undefined)?.role
 
@@ -56,6 +57,12 @@ export function Sidebar() {
       .then((res) => res.json())
       .then((data) => {
         if (data.data?.alertas) setAlertasCount(data.data.alertas.length)
+      })
+      .catch(() => {})
+    fetch('/api/admin/version')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.data?.currentVersion) setAppVersion(data.data.currentVersion)
       })
       .catch(() => {})
   }, [])
@@ -197,7 +204,8 @@ export function Sidebar() {
         className="px-4 py-3 text-[11px]"
         style={{ color: '#4B5563', borderTop: '1px solid #1a2e2c' }}
       >
-        Periodo: {new Date().getFullYear()}
+        <div>Periodo: {new Date().getFullYear()}</div>
+        {appVersion && <div style={{ color: '#3d5a56' }}>v{appVersion}</div>}
       </div>
     </aside>
   )
