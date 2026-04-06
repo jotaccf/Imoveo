@@ -114,6 +114,13 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 
   NEXTAUTH_SECRET=$(openssl rand -base64 32)
 
+  DEPLOY_PASS=$(prompt_secret "Password para o utilizador 'deploy' [Enter = gerar automaticamente]:")
+  if [[ -z "$DEPLOY_PASS" ]]; then
+    DEPLOY_PASS=$(openssl rand -base64 12)
+    warn "Password deploy gerada: $DEPLOY_PASS"
+    warn "Guarde esta password!"
+  fi
+
   ALERT_EMAIL=$(prompt "Email para notificacoes de falha (Enter para saltar):")
 
   # IP fixo
@@ -150,6 +157,7 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   sudo mkdir -p "$APP_DIR"
   sudo tee "$CONFIG_FILE" > /dev/null << CFGEOF
 DOMAIN="$DOMAIN"
+DEPLOY_PASS="$DEPLOY_PASS"
 STATIC_IP="$STATIC_IP"
 STATIC_MASK="${STATIC_MASK:-}"
 STATIC_GW="${STATIC_GW:-}"
@@ -257,14 +265,9 @@ if id "$DEPLOY_USER" &>/dev/null; then
   skip "Utilizador '$DEPLOY_USER' ja existe"
 else
   sudo useradd -m -s /bin/bash "$DEPLOY_USER"
-  log "A definir password para o utilizador '$DEPLOY_USER':"
-  sudo passwd "$DEPLOY_USER" < /dev/tty 2>/dev/null || sudo passwd "$DEPLOY_USER" <&3 2>/dev/null || {
-    warn "Nao foi possivel definir password automaticamente."
-    warn "Execute manualmente: sudo passwd deploy"
-  }
-  # Adicionar ao sudoers para docker
+  echo "${DEPLOY_USER}:${DEPLOY_PASS}" | sudo chpasswd
   echo "$DEPLOY_USER ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/docker-compose" | sudo tee /etc/sudoers.d/deploy > /dev/null
-  ok "Utilizador '$DEPLOY_USER' criado"
+  ok "Utilizador '$DEPLOY_USER' criado (password definida)"
 fi
 
 # Garantir grupo docker
