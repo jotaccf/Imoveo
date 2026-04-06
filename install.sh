@@ -174,7 +174,9 @@ if [[ -d "$APP_DIR/.git" ]]; then
   warn "Repositorio ja existe. A actualizar..."
   sudo -u "$DEPLOY_USER" git -C "$APP_DIR" pull origin main
 else
-  sudo rm -rf "${APP_DIR:?}/"*
+  sudo rm -rf "$APP_DIR"
+  sudo mkdir -p "$APP_DIR"
+  sudo chown "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
   sudo -u "$DEPLOY_USER" git clone https://github.com/jotaccf/Imoveo.git "$APP_DIR"
 fi
 
