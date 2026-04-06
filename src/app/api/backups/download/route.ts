@@ -1,12 +1,15 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { requirePermission, type Role } from '@/lib/permissions'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { execSync } from 'child_process'
 
-const BACKUP_DIR = process.env.BACKUP_DIR || '/opt/backups/imoveo'
+const isWindows = process.platform === 'win32'
+const BACKUP_DIR = process.env.BACKUP_DIR || (isWindows ? join(process.cwd(), 'backups') : '/opt/backups/imoveo')
 const DB_URL = process.env.DATABASE_URL || ''
+
+try { mkdirSync(BACKUP_DIR, { recursive: true }) } catch { /* ignore */ }
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,14 +24,13 @@ export async function GET(req: NextRequest) {
     let downloadName: string
 
     if (filename) {
-      // Descarregar backup existente
-      if (filename.includes('..') || filename.includes('/')) {
+      if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
         return Response.json({ error: 'Filename invalido' }, { status: 400 })
       }
       filepath = join(BACKUP_DIR, filename)
       downloadName = filename
     } else {
-      // Criar backup fresh e descarregar
+      // Criar backup fresh
       const url = new URL(DB_URL)
       const host = url.hostname
       const port = url.port || '5432'
@@ -37,13 +39,21 @@ export async function GET(req: NextRequest) {
       const database = url.pathname.replace('/', '')
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19)
-      downloadName = `imoveo_export_${timestamp}.sql.gz`
-      filepath = join('/tmp', downloadName)
+      downloadName = `imoveo_export_${timestamp}.sql`
+      filepath = join(BACKUP_DIR, downloadName)
 
-      execSync(
-        `PGPASSWORD='${password}' pg_dump -h ${host} -p ${port} -U ${user} ${database} | gzip > ${filepath}`,
-        { timeout: 120000 }
-      )
+      if (isWindows) {
+        const containerName = 'imoveo-postgres-1'
+        execSync(
+          `docker exec -e PGPASSWORD=${password} ${containerName} pg_dump -U ${user} ${database} > "${filepath}"`,
+          { timeout: 120000, shell: 'cmd.exe' }
+        )
+      } else {
+        execSync(
+          `PGPASSWORD='${password}' pg_dump -h ${host} -p ${port} -U ${user} ${database} > ${filepath}`,
+          { timeout: 120000 }
+        )
+      }
     }
 
     if (!existsSync(filepath)) {
