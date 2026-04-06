@@ -15,6 +15,7 @@ const routePermissions: Record<string, string[]> = {
   '/irc': ['ADMIN', 'GESTOR'],
   '/calculadora': ['ADMIN', 'GESTOR'],
   '/configuracoes': ['ADMIN'],
+  '/backups': ['ADMIN'],
   '/utilizadores': ['ADMIN'],
 }
 

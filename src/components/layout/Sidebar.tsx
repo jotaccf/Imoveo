@@ -17,6 +17,7 @@ import {
   PieChart,
   Calculator,
   Settings,
+  Database,
 } from 'lucide-react'
 import { ImoveoIcon } from '@/components/ui/ImoveoIcon'
 import { hasPermission, type Role } from '@/lib/permissions'
@@ -81,6 +82,7 @@ export function Sidebar() {
       title: 'ADMINISTRACAO',
       items: [
         { label: 'Configuracoes', href: '/configuracoes', icon: <Settings size={16} />, permission: 'utilizadores:ver' },
+        { label: 'Backups', href: '/backups', icon: <Database size={16} />, permission: 'utilizadores:ver' },
         { label: 'Utilizadores', href: '/utilizadores', icon: <Users size={16} />, permission: 'utilizadores:ver' },
       ],
     },
