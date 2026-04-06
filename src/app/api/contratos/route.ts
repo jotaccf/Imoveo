@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Campos obrigatorios em falta' }, { status: 400 })
     }
 
+    // Verificar se a fracao ja tem contrato ativo
+    const existente = await prisma.contrato.findFirst({
+      where: { fracaoId, estado: 'ATIVO' },
+    })
+    if (existente) {
+      return Response.json({ error: 'Esta fracao ja tem um contrato ativo' }, { status: 409 })
+    }
+
     const contrato = await prisma.contrato.create({
       data: {
         fracaoId,

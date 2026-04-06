@@ -263,7 +263,13 @@ export default function ContratosPage() {
   }
 
   const selectedImovel = imoveis.find((im) => im.id === form.imovelId)
-  const fracaoOptions = selectedImovel?.fracoes?.map((f) => ({ value: f.id, label: f.nome })) || []
+  // Ao criar, só mostrar fracoes sem contrato ativo. Ao editar, incluir a fracao atual.
+  const fracoesComContratoAtivo = new Set(
+    contratos.filter((c) => c.estado === 'ATIVO' && c.id !== editId).map((c) => c.fracaoId)
+  )
+  const fracaoOptions = (selectedImovel?.fracoes || [])
+    .filter((f) => !fracoesComContratoAtivo.has(f.id))
+    .map((f) => ({ value: f.id, label: f.nome }))
 
   if (loading) return <div className="text-sm text-gray-400">A carregar...</div>
 
