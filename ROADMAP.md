@@ -35,10 +35,10 @@
 - [x] Endpoint /api/admin/debug (diagnostico completo do sistema)
 - [x] Debug logger temporario para troubleshooting producao
 
-## v1.1.0 — Melhorias UX e Reporting 📋 Planned
-- [ ] Comparacao YoY (ano vs ano anterior)
-- [ ] Alertas automaticos por threshold (yield, ocupacao, racio)
-- [ ] Dashboard de gestao de contratos (expiracoes, renovacoes)
+## v1.1.0 — Melhorias UX e Reporting ✅ Released (2026-04-06)
+- [x] Comparacao YoY (ano vs ano anterior)
+- [x] Alertas automaticos por threshold (yield, ocupacao, racio, margem)
+- [x] Dashboard de gestao de contratos (expiracoes, renovacoes, projecao receita)
 
 ## v1.2.0 — Electron Desktop 📋 Planned
 - [ ] Electron wrapper com PostgreSQL embutido
