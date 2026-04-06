@@ -4,11 +4,7 @@
 #  Para Ubuntu Server 22.04 / 24.04 LTS
 #
 #  Uso:
-#    bash <(curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh)
-#
-#  Ou:
-#    curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh -o install.sh
-#    bash install.sh
+#    curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh -o install.sh && bash install.sh
 #
 #  Seguro para re-executar — salta passos ja concluidos.
 # ============================================================
