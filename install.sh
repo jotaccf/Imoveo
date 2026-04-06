@@ -108,7 +108,8 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 
   DB_PASSWORD=$(prompt_secret "Password PostgreSQL [Enter = gerar automaticamente]:")
   if [[ -z "$DB_PASSWORD" ]]; then
-    DB_PASSWORD=$(openssl rand -base64 16)
+    # Gerar password alfanumerica (sem caracteres especiais que quebram URLs)
+    DB_PASSWORD=$(openssl rand -hex 16)
     warn "Password gerada automaticamente"
   fi
 
@@ -116,7 +117,7 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 
   DEPLOY_PASS=$(prompt_secret "Password para o utilizador 'deploy' [Enter = gerar automaticamente]:")
   if [[ -z "$DEPLOY_PASS" ]]; then
-    DEPLOY_PASS=$(openssl rand -base64 12)
+    DEPLOY_PASS=$(openssl rand -hex 8)
     warn "Password deploy gerada: $DEPLOY_PASS"
     warn "Guarde esta password!"
   fi
