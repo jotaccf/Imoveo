@@ -27,10 +27,17 @@
 - [x] Exportacao PDF de analise financeira
 - [x] Fix: restore limpa schema antes de importar (evita conflitos)
 
+## v1.0.2 — Contratos e Manutencao (2026-04-06)
+- [x] Gestao de contratos de arrendamento (inquilino, fiador, renovacao)
+- [x] Comunicacao AT por contrato (toggle na listagem)
+- [x] Modo manutencao B+ para updates (pagina Nginx + logs tempo real)
+- [x] Update watcher via cron no host (resolve container a morrer durante rebuild)
+- [x] Endpoint /api/admin/debug (diagnostico completo do sistema)
+- [x] Debug logger temporario para troubleshooting producao
+
 ## v1.1.0 — Melhorias UX e Reporting 📋 Planned
 - [ ] Comparacao YoY (ano vs ano anterior)
 - [ ] Alertas automaticos por threshold (yield, ocupacao, racio)
-- [ ] Gestao de contratos de arrendamento (inicio, fim, valor, renovacao)
 - [ ] Dashboard de gestao de contratos (expiracoes, renovacoes)
 
 ## v1.2.0 — Electron Desktop 📋 Planned
