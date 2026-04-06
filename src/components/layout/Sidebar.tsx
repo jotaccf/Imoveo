@@ -19,6 +19,8 @@ import {
   Settings,
   Database,
   FileSignature,
+  ClipboardList,
+  Bell,
 } from 'lucide-react'
 import { ImoveoIcon } from '@/components/ui/ImoveoIcon'
 import { hasPermission, type Role } from '@/lib/permissions'
@@ -39,6 +41,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const [pendentesCount, setPendentesCount] = useState<number>(0)
+  const [alertasCount, setAlertasCount] = useState<number>(0)
 
   const role = (session?.user as { role?: Role } | undefined)?.role
 
@@ -47,6 +50,12 @@ export function Sidebar() {
       .then((res) => res.json())
       .then((data) => {
         if (typeof data.count === 'number') setPendentesCount(data.count)
+      })
+      .catch(() => {})
+    fetch('/api/alertas')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.data?.alertas) setAlertasCount(data.data.alertas.length)
       })
       .catch(() => {})
   }, [])
@@ -58,6 +67,7 @@ export function Sidebar() {
         { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
         { label: 'Imoveis', href: '/imoveis', icon: <Building2 size={16} />, permission: 'imoveis:ver' },
         { label: 'Contratos', href: '/contratos', icon: <FileSignature size={16} />, permission: 'imoveis:ver' },
+        { label: 'Dashboard Contratos', href: '/contratos/dashboard', icon: <ClipboardList size={16} />, permission: 'imoveis:ver' },
       ],
     },
     {
@@ -76,6 +86,7 @@ export function Sidebar() {
         { label: 'Custos Operacionais', href: '/custos', icon: <PieChart size={16} />, permission: 'resultados:ver' },
         { label: 'Previsao IRC', href: '/irc', icon: <Calculator size={16} />, permission: 'resultados:ver' },
         { label: 'Calculadora', href: '/calculadora', icon: <Calculator size={16} />, permission: 'resultados:ver' },
+        { label: 'Alertas', href: '/alertas', icon: <Bell size={16} />, permission: 'resultados:ver' },
         { label: 'Resultados', href: '/resultados', icon: <BarChart3 size={16} />, permission: 'resultados:ver' },
         { label: 'Mapeamento NIF', href: '/mapeamento', icon: <Link2 size={16} />, permission: 'mapeamento:ver' },
       ],
@@ -163,6 +174,14 @@ export function Sidebar() {
                         style={{ backgroundColor: '#DC2626' }}
                       >
                         {pendentesCount}
+                      </span>
+                    )}
+                    {item.href === '/alertas' && alertasCount > 0 && (
+                      <span
+                        className="text-[10px] font-medium text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
+                        style={{ backgroundColor: '#DC2626' }}
+                      >
+                        {alertasCount}
                       </span>
                     )}
                   </Link>

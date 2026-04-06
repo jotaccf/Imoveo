@@ -15,11 +15,33 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiData = any
 
+// ---------- YoY helpers ----------
+
+function VarBadge({ value, invert = false }: { value: number; invert?: boolean }) {
+  const positive = invert ? value < 0 : value >= 0
+  const arrow = value >= 0 ? '\u2191' : '\u2193'
+  const color = positive ? '#0F6E56' : '#A32D2D'
+  const bg = positive ? '#E1F5EE' : '#FCEBEB'
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium"
+      style={{ color, backgroundColor: bg }}
+    >
+      {arrow} {Math.abs(value).toFixed(1)}%
+    </span>
+  )
+}
+
 export default function AnalisePage() {
   const [ano, setAno] = useState(new Date().getFullYear())
   const [years, setYears] = useState<number[]>([new Date().getFullYear()])
   const [data, setData] = useState<ApiData>(null)
   const [loading, setLoading] = useState(true)
+
+  // YoY state
+  const [yoyActive, setYoyActive] = useState(false)
+  const [yoyData, setYoyData] = useState<ApiData>(null)
+  const [yoyLoading, setYoyLoading] = useState(false)
 
   useEffect(() => {
     fetch('/api/anos').then(r => r.json()).then(j => { if (j.data) setYears(j.data) }).catch(() => {})
@@ -33,6 +55,17 @@ export default function AnalisePage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [ano])
+
+  // Fetch YoY data when toggle is active
+  useEffect(() => {
+    if (!yoyActive) { setYoyData(null); return }
+    setYoyLoading(true)
+    fetch(`/api/analise/yoy?ano=${ano}`)
+      .then((r) => r.json())
+      .then((j) => { if (j.data) setYoyData(j.data) })
+      .catch(() => {})
+      .finally(() => setYoyLoading(false))
+  }, [yoyActive, ano])
 
   if (loading) return <div className="text-sm text-gray-400">A carregar...</div>
   if (!data) return <div className="text-sm text-gray-400">Sem dados</div>
@@ -62,11 +95,18 @@ export default function AnalisePage() {
 
   return (
     <div className="space-y-5">
-      {/* Year selector + PDF export */}
+      {/* Year selector + YoY toggle + PDF export */}
       <div className="flex items-center gap-2">
         {years.map((y) => (
           <Button key={y} variant={y === ano ? 'primary' : 'secondary'} onClick={() => setAno(y)}>{y}</Button>
         ))}
+        <Button
+          variant={yoyActive ? 'primary' : 'secondary'}
+          onClick={() => setYoyActive((v) => !v)}
+          className="ml-2"
+        >
+          Comparacao YoY
+        </Button>
         <div className="ml-auto">
           <Button variant="secondary" onClick={() => {
             const link = document.createElement('a')
@@ -78,6 +118,124 @@ export default function AnalisePage() {
           </Button>
         </div>
       </div>
+
+      {/* YoY Section — shown when toggle is active */}
+      {yoyActive && (
+        yoyLoading ? (
+          <div className="text-sm text-gray-400">A carregar comparacao...</div>
+        ) : yoyData ? (
+          <div className="space-y-5">
+            {/* YoY KPIs */}
+            <div>
+              <h2 className="text-sm font-semibold mb-3" style={{ color: '#0D1B1A' }}>
+                Comparacao YoY — {yoyData.anoAnterior} vs {yoyData.ano}
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="rounded-lg p-3.5" style={{ background: '#F3F4F6' }}>
+                  <div className="text-[11px] font-medium mb-1" style={{ color: '#6B7280' }}>Receita Total</div>
+                  <div className="text-xl font-medium" style={{ color: '#0F6E56' }}>{formatCurrency(yoyData.global.receitaTotal.atual)}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{formatCurrency(yoyData.global.receitaTotal.anterior)}</span>
+                    <VarBadge value={yoyData.global.receitaTotal.pct} />
+                  </div>
+                </div>
+                <div className="rounded-lg p-3.5" style={{ background: '#F3F4F6' }}>
+                  <div className="text-[11px] font-medium mb-1" style={{ color: '#6B7280' }}>Custos Totais</div>
+                  <div className="text-xl font-medium" style={{ color: '#A32D2D' }}>{formatCurrency(yoyData.global.custoTotal.atual)}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{formatCurrency(yoyData.global.custoTotal.anterior)}</span>
+                    <VarBadge value={yoyData.global.custoTotal.pct} invert />
+                  </div>
+                </div>
+                <div className="rounded-lg p-3.5" style={{ background: '#F3F4F6' }}>
+                  <div className="text-[11px] font-medium mb-1" style={{ color: '#6B7280' }}>Resultado Liquido</div>
+                  <div className="text-xl font-medium" style={{ color: yoyData.global.resultadoLiquido.atual >= 0 ? '#0F6E56' : '#A32D2D' }}>{formatCurrency(yoyData.global.resultadoLiquido.atual)}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{formatCurrency(yoyData.global.resultadoLiquido.anterior)}</span>
+                    <VarBadge value={yoyData.global.resultadoLiquido.pct} />
+                  </div>
+                </div>
+                <div className="rounded-lg p-3.5" style={{ background: '#F3F4F6' }}>
+                  <div className="text-[11px] font-medium mb-1" style={{ color: '#6B7280' }}>Margem Bruta</div>
+                  <div className="text-xl font-medium" style={{ color: '#0D1B1A' }}>{yoyData.global.margemBrutaPct.atual.toFixed(1)}%</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{yoyData.global.margemBrutaPct.anterior.toFixed(1)}%</span>
+                    <VarBadge value={yoyData.global.margemBrutaPct.delta} />
+                  </div>
+                </div>
+                <div className="rounded-lg p-3.5" style={{ background: '#F3F4F6' }}>
+                  <div className="text-[11px] font-medium mb-1" style={{ color: '#6B7280' }}>IRC Estimado</div>
+                  <div className="text-xl font-medium" style={{ color: '#633806' }}>{formatCurrency(yoyData.ircAtual)}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{formatCurrency(yoyData.ircAnterior)}</span>
+                    <VarBadge value={yoyData.ircVar} invert />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* YoY Per-property comparison table */}
+            <Card className="p-0 overflow-x-auto">
+              <div className="px-5 pt-4 pb-2">
+                <h3 className="text-sm font-semibold" style={{ color: '#0D1B1A' }}>Comparacao por Imovel</h3>
+              </div>
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr>
+                    {['Imovel', `Receita ${yoyData.anoAnterior}`, `Receita ${yoyData.ano}`, 'Var %', `Resultado ${yoyData.anoAnterior}`, `Resultado ${yoyData.ano}`, 'Var %'].map((h) => (
+                      <th key={h} className="px-3 py-2 text-[11px] font-medium text-[#6B7280] border-b border-gray-100">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(yoyData.imoveis || []).map((im: ApiData) => (
+                    <tr key={im.id}>
+                      <td className="px-3 py-2.5 border-b border-gray-50 font-medium" style={{ color: '#0D1B1A' }}>{im.nome}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: '#6B7280' }}>{formatCurrency(im.receitaAnterior)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: '#0F6E56' }}>{formatCurrency(im.receitaAtual)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right"><VarBadge value={im.receitaVar} /></td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: '#6B7280' }}>{formatCurrency(im.resultadoAnterior)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: im.resultadoAtual >= 0 ? '#0F6E56' : '#A32D2D' }}>{formatCurrency(im.resultadoAtual)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right"><VarBadge value={im.resultadoVar} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+
+            {/* YoY Monthly comparison table */}
+            <Card className="p-0 overflow-x-auto">
+              <div className="px-5 pt-4 pb-2">
+                <h3 className="text-sm font-semibold" style={{ color: '#0D1B1A' }}>Evolucao Mensal Comparada</h3>
+              </div>
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr>
+                    {['Mes', `Receita ${yoyData.anoAnterior}`, `Receita ${yoyData.ano}`, 'Var', `Custos ${yoyData.anoAnterior}`, `Custos ${yoyData.ano}`, 'Var'].map((h) => (
+                      <th key={h} className="px-3 py-2 text-[11px] font-medium text-[#6B7280] border-b border-gray-100">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(yoyData.evolucaoMensal || []).map((m: ApiData, i: number) => (
+                    <tr key={m.mes}>
+                      <td className="px-3 py-2.5 border-b border-gray-50 font-medium" style={{ color: '#0D1B1A' }}>{MESES[i]}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: '#6B7280' }}>{formatCurrency(m.receitaAnterior)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: '#0F6E56' }}>{formatCurrency(m.receitaAtual)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right"><VarBadge value={m.receitaVar} /></td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: '#6B7280' }}>{formatCurrency(m.custosAnterior)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right" style={{ color: '#A32D2D' }}>{formatCurrency(m.custosAtual)}</td>
+                      <td className="px-3 py-2.5 border-b border-gray-50 text-right"><VarBadge value={m.custosVar} invert /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400">Sem dados de comparacao</div>
+        )
+      )}
 
       {/* Section 1 — Rentabilidade Global */}
       <div>
