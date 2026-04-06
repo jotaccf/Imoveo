@@ -7,7 +7,7 @@
 # ============================================================
 
 APP_DIR="/opt/imoveo"
-FLAG="$APP_DIR/UPDATE_REQUESTED"
+FLAG="$APP_DIR/shared/UPDATE_REQUESTED"
 LOG="/opt/backups/imoveo/update.log"
 MAINT_LOG="/var/www/maintenance/update.log"
 NGINX_MAINT="/etc/nginx/sites-enabled/imoveo-maintenance"

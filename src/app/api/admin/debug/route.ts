@@ -104,7 +104,7 @@ export async function GET() {
       : readFileSafe('/opt/imoveo/debug.log', 30)
 
     // Update flag
-    const updateFlagExists = !isWindows && existsSync('/opt/imoveo/UPDATE_REQUESTED')
+    const updateFlagExists = !isWindows && existsSync('/app/shared/UPDATE_REQUESTED')
 
     // Cron jobs (corre no host, não no container)
     const hasCrontab = cmdExists('crontab')

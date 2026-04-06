@@ -4,7 +4,8 @@ import { writeFileSync, existsSync } from 'fs'
 import { debugLog, debugError } from '@/lib/debug-logger'
 
 const isWindows = process.platform === 'win32'
-const FLAG_PATH = isWindows ? '' : '/opt/imoveo/UPDATE_REQUESTED'
+// O flag é escrito em /app/shared/ que está mapeado para /opt/imoveo/shared/ no host
+const FLAG_PATH = isWindows ? '' : '/app/shared/UPDATE_REQUESTED'
 
 export async function POST() {
   try {
