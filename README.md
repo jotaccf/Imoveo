@@ -11,7 +11,14 @@ Aplicacao web de gestao de patrimonio imobiliario para empresas de subarrendamen
 Num servidor Ubuntu 22.04 ou 24.04 LTS recem-instalado (apenas com acesso SSH), execute:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh)
+```
+
+Ou em dois passos (se preferir ver a script antes de executar):
+```bash
+curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh -o install.sh
+cat install.sh    # ver o conteudo
+bash install.sh   # executar
 ```
 
 A script ira:

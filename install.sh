@@ -2,7 +2,13 @@
 # ============================================================
 #  IMOVEO — Script de Instalacao Automatica
 #  Para Ubuntu Server 22.04 / 24.04 LTS
-#  Uso: curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh | bash
+#
+#  Uso:
+#    curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh -o install.sh
+#    bash install.sh
+#
+#  Ou numa unica linha:
+#    bash <(curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh)
 # ============================================================
 
 set -e
@@ -18,6 +24,26 @@ log()   { echo -e "${GREEN}[IMOVEO]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[AVISO]${NC} $1"; }
 error() { echo -e "${RED}[ERRO]${NC} $1"; }
 ask()   { echo -e "${BLUE}[?]${NC} $1"; }
+
+# Ler sempre do terminal (nao do pipe)
+prompt() {
+  ask "$1"
+  read -r REPLY </dev/tty
+  echo "$REPLY"
+}
+
+prompt_secret() {
+  ask "$1"
+  read -rs REPLY </dev/tty
+  echo ""
+  echo "$REPLY"
+}
+
+prompt_confirm() {
+  ask "$1 (s/n)"
+  read -r REPLY </dev/tty
+  [[ "$REPLY" == "s" || "$REPLY" == "S" || "$REPLY" == "y" || "$REPLY" == "Y" ]]
+}
 
 # ============================================================
 #  VERIFICACOES INICIAIS
@@ -46,34 +72,25 @@ echo ""
 # ============================================================
 
 # Dominio/URL
-ask "Qual o dominio para o Imoveo? (ex: imoveo.local)"
-read -r DOMAIN
-if [[ -z "$DOMAIN" ]]; then
-  DOMAIN="imoveo.local"
-  warn "A usar dominio por defeito: $DOMAIN"
-fi
+DOMAIN=$(prompt "Qual o dominio para o Imoveo? (ex: imoveo.local) [Enter = imoveo.local]")
+DOMAIN=${DOMAIN:-imoveo.local}
 
 # Porta da aplicacao
-ask "Qual a porta interna para o Imoveo? (ex: 3000) [Enter = 3000]"
-read -r APP_PORT
+APP_PORT=$(prompt "Qual a porta interna para o Imoveo? [Enter = 3000]")
 APP_PORT=${APP_PORT:-3000}
 
 # Password PostgreSQL
-ask "Escolha uma password para a base de dados PostgreSQL:"
-read -rs DB_PASSWORD
-echo ""
+DB_PASSWORD=$(prompt_secret "Escolha uma password para a base de dados PostgreSQL [Enter = gerar automaticamente]:")
 if [[ -z "$DB_PASSWORD" ]]; then
   DB_PASSWORD=$(openssl rand -base64 16)
-  warn "Password gerada automaticamente: $DB_PASSWORD"
+  warn "Password gerada automaticamente"
 fi
 
 # NextAuth Secret
 NEXTAUTH_SECRET=$(openssl rand -base64 32)
 
 # Email para notificacoes (opcional)
-ask "Email para notificacoes de falha (deixe vazio para saltar):"
-read -r ALERT_EMAIL
-ALERT_EMAIL=${ALERT_EMAIL:-""}
+ALERT_EMAIL=$(prompt "Email para notificacoes de falha (Enter para saltar):")
 
 echo ""
 log "Configuracao:"
@@ -82,9 +99,8 @@ log "  Porta:      $APP_PORT"
 log "  DB Pass:    ********"
 log "  Email:      ${ALERT_EMAIL:-'(nenhum)'}"
 echo ""
-ask "Continuar com a instalacao? (s/n)"
-read -r CONFIRM
-if [[ "$CONFIRM" != "s" && "$CONFIRM" != "S" && "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+
+if ! prompt_confirm "Continuar com a instalacao?"; then
   log "Instalacao cancelada."
   exit 0
 fi
@@ -110,9 +126,6 @@ sudo apt-get install -y -qq \
   git \
   nginx \
   ufw \
-  mailutils \
-  msmtp \
-  msmtp-mta \
   cron \
   openssl
 
@@ -161,7 +174,7 @@ if [[ -d "$APP_DIR/.git" ]]; then
   warn "Repositorio ja existe. A actualizar..."
   sudo -u "$DEPLOY_USER" git -C "$APP_DIR" pull origin main
 else
-  sudo rm -rf "$APP_DIR"
+  sudo rm -rf "${APP_DIR:?}/"*
   sudo -u "$DEPLOY_USER" git clone https://github.com/jotaccf/Imoveo.git "$APP_DIR"
 fi
 
@@ -175,7 +188,7 @@ ENV_FILE="$APP_DIR/.env.prod"
 if [[ -f "$ENV_FILE" ]]; then
   warn "Ficheiro .env.prod ja existe. A manter configuracao actual."
 else
-  sudo -u "$DEPLOY_USER" bash -c "cat > $ENV_FILE << ENVEOF
+  sudo -u "$DEPLOY_USER" tee "$ENV_FILE" > /dev/null << ENVEOF
 DATABASE_URL=postgresql://imoveo:${DB_PASSWORD}@postgres:5432/imoveo
 POSTGRES_PASSWORD=${DB_PASSWORD}
 NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
@@ -183,7 +196,7 @@ NEXTAUTH_URL=http://${DOMAIN}
 NODE_ENV=production
 UPLOAD_DIR=/app/uploads
 MAX_FILE_SIZE=10485760
-ENVEOF"
+ENVEOF
   sudo chmod 600 "$ENV_FILE"
   log "Ficheiro .env.prod criado"
 fi
@@ -198,7 +211,7 @@ log "7/9 — A configurar Nginx..."
 sudo rm -f /etc/nginx/sites-enabled/default
 
 # Criar configuracao para Imoveo
-sudo bash -c "cat > /etc/nginx/sites-available/imoveo << 'NGINXEOF'
+sudo tee /etc/nginx/sites-available/imoveo > /dev/null << NGINXEOF
 server {
     listen 80;
     server_name ${DOMAIN};
@@ -223,18 +236,17 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Health check endpoint
     location /api/health {
         proxy_pass http://127.0.0.1:${APP_PORT};
         access_log off;
     }
 }
-NGINXEOF"
+NGINXEOF
 
 # Activar site
 sudo ln -sf /etc/nginx/sites-available/imoveo /etc/nginx/sites-enabled/imoveo
 
-# Testar configuracao
+# Testar e reiniciar
 sudo nginx -t
 sudo systemctl restart nginx
 sudo systemctl enable nginx
@@ -257,10 +269,10 @@ echo "y" | sudo ufw enable
 log "Firewall activo (SSH + HTTP + HTTPS)"
 
 # ============================================================
-#  9. CONFIGURAR DOCKER LOG ROTATION
+#  CONFIGURAR DOCKER LOG ROTATION
 # ============================================================
 
-sudo bash -c 'cat > /etc/docker/daemon.json << DOCKEREOF
+sudo tee /etc/docker/daemon.json > /dev/null << 'DOCKEREOF'
 {
   "log-driver": "json-file",
   "log-opts": {
@@ -268,12 +280,12 @@ sudo bash -c 'cat > /etc/docker/daemon.json << DOCKEREOF
     "max-file": "3"
   }
 }
-DOCKEREOF'
+DOCKEREOF
 
 sudo systemctl restart docker
 
 # ============================================================
-#  10. ARRANCAR APLICACAO
+#  9. ARRANCAR APLICACAO
 # ============================================================
 
 log "9/9 — A arrancar a aplicacao..."
@@ -289,37 +301,34 @@ sleep 60
 
 # Executar migrations
 log "A executar migrations..."
-sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml exec -T app npx prisma migrate deploy || warn "Migrations falharam — pode ser a primeira vez"
+sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml exec -T app npx prisma migrate deploy 2>/dev/null || warn "Migrations — pode necessitar de retry"
 
 # Executar seed
 log "A inserir dados iniciais..."
-sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml exec -T app npx prisma db seed || warn "Seed falhou — dados podem ja existir"
+sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml exec -T app npx prisma db seed 2>/dev/null || warn "Seed — dados podem ja existir"
 
 # ============================================================
-#  11. CONFIGURAR BACKUP DIARIO
+#  CONFIGURAR BACKUP DIARIO
 # ============================================================
 
 log "A configurar backups diarios..."
 
 BACKUP_SCRIPT="$APP_DIR/backup.sh"
-sudo -u "$DEPLOY_USER" bash -c "cat > $BACKUP_SCRIPT << 'BACKUPEOF'
+sudo -u "$DEPLOY_USER" tee "$BACKUP_SCRIPT" > /dev/null << 'BACKUPEOF'
 #!/bin/bash
-DATE=\$(date +%Y%m%d_%H%M%S)
+DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR=/opt/backups/imoveo
-mkdir -p \$BACKUP_DIR
+mkdir -p $BACKUP_DIR
 
-# Backup da base de dados
 docker compose -f /opt/imoveo/docker-compose.prod.yml exec -T postgres \
-  pg_dump -U imoveo imoveo > \$BACKUP_DIR/imoveo_\$DATE.sql
+  pg_dump -U imoveo imoveo > $BACKUP_DIR/imoveo_$DATE.sql
 
-# Comprimir
-gzip \$BACKUP_DIR/imoveo_\$DATE.sql
+gzip $BACKUP_DIR/imoveo_$DATE.sql
 
-# Manter apenas os ultimos 30 backups
-ls -t \$BACKUP_DIR/*.sql.gz 2>/dev/null | tail -n +31 | xargs -r rm
+ls -t $BACKUP_DIR/*.sql.gz 2>/dev/null | tail -n +31 | xargs -r rm
 
-echo \"\$(date): Backup concluido: imoveo_\$DATE.sql.gz\"
-BACKUPEOF"
+echo "$(date): Backup concluido: imoveo_$DATE.sql.gz"
+BACKUPEOF
 
 sudo chmod +x "$BACKUP_SCRIPT"
 
@@ -328,33 +337,32 @@ sudo chmod +x "$BACKUP_SCRIPT"
 
 log "Backups diarios configurados as 02:00"
 log "Localizacao: /opt/backups/imoveo/"
-log "Retencao: ultimos 30 dias"
 
 # ============================================================
-#  12. CONFIGURAR MONITORAMENTO
+#  CONFIGURAR MONITORAMENTO (HEALTH CHECK)
 # ============================================================
 
-# Script de health check
 HEALTH_SCRIPT="$APP_DIR/healthcheck.sh"
-sudo -u "$DEPLOY_USER" bash -c "cat > $HEALTH_SCRIPT << HEALTHEOF
+sudo -u "$DEPLOY_USER" tee "$HEALTH_SCRIPT" > /dev/null << HEALTHEOF
 #!/bin/bash
-RESPONSE=\\\$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${APP_PORT}/api/health 2>/dev/null)
-if [[ \\\"\\\$RESPONSE\\\" != \\\"200\\\" ]]; then
-  echo \\\"\\\$(date): ALERTA — Imoveo nao responde (HTTP \\\$RESPONSE)\\\" >> /opt/backups/imoveo/health.log
-  # Tentar reiniciar
+RESPONSE=\$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${APP_PORT}/api/health 2>/dev/null)
+if [[ "\$RESPONSE" != "200" ]]; then
+  echo "\$(date): ALERTA — Imoveo nao responde (HTTP \$RESPONSE)" >> /opt/backups/imoveo/health.log
   cd /opt/imoveo && docker compose -f docker-compose.prod.yml --env-file .env.prod restart app
-  echo \\\"\\\$(date): Servico reiniciado automaticamente\\\" >> /opt/backups/imoveo/health.log
+  echo "\$(date): Servico reiniciado automaticamente" >> /opt/backups/imoveo/health.log
 fi
-HEALTHEOF"
+HEALTHEOF
 
 sudo chmod +x "$HEALTH_SCRIPT"
 
-# Verificar saude a cada 5 minutos
+# Health check a cada 5 minutos
 (sudo -u "$DEPLOY_USER" crontab -l 2>/dev/null | grep -v "healthcheck.sh"; echo "*/5 * * * * $HEALTH_SCRIPT") | sudo -u "$DEPLOY_USER" crontab -
 
 # ============================================================
 #  RESUMO FINAL
 # ============================================================
+
+SERVER_IP=$(hostname -I | awk '{print $1}')
 
 echo ""
 echo ""
@@ -363,27 +371,34 @@ log "  IMOVEO — Instalacao Concluida!"
 log "============================================"
 echo ""
 log "  URL:        http://${DOMAIN}"
+log "  IP:         ${SERVER_IP}"
 log "  Porta:      ${APP_PORT}"
 log "  Directorio: ${APP_DIR}"
 log "  Backups:    ${BACKUP_DIR}/"
 log "  Utilizador: ${DEPLOY_USER}"
 echo ""
-log "  Credenciais:"
+log "  Credenciais iniciais:"
 log "    Admin:    admin@imoveo.local / Imoveo2024!"
 log "    Gestor:   gestor@imoveo.local / Imoveo2024!"
 log "    Operador: operador@imoveo.local / Imoveo2024!"
 echo ""
 warn "  IMPORTANTE: Altere as passwords no primeiro login!"
 echo ""
-log "  Comandos uteis:"
-log "    sudo su - deploy                    # Mudar para utilizador deploy"
-log "    cd /opt/imoveo"
-log "    docker compose -f docker-compose.prod.yml ps       # Ver estado"
-log "    docker compose -f docker-compose.prod.yml logs -f   # Ver logs"
-log "    docker compose -f docker-compose.prod.yml restart   # Reiniciar"
+log "  Para aceder, adicione ao DNS local ou ao"
+log "  ficheiro hosts do seu computador:"
 echo ""
-log "  Para que o dominio '${DOMAIN}' funcione,"
-log "  adicione ao DNS local ou ao /etc/hosts do seu PC:"
-log "    $(hostname -I | awk '{print $1}')  ${DOMAIN}"
+log "  Windows: C:\\Windows\\System32\\drivers\\etc\\hosts"
+log "  macOS/Linux: /etc/hosts"
+echo ""
+log "  Adicionar a linha:"
+log "    ${SERVER_IP}  ${DOMAIN}"
+echo ""
+log "  Depois abra: http://${DOMAIN}"
+echo ""
+log "  Comandos uteis:"
+log "    sudo su - deploy"
+log "    cd /opt/imoveo"
+log "    docker compose -f docker-compose.prod.yml ps"
+log "    docker compose -f docker-compose.prod.yml logs -f"
 echo ""
 log "============================================"
