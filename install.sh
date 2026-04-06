@@ -265,9 +265,15 @@ if id "$DEPLOY_USER" &>/dev/null; then
   skip "Utilizador '$DEPLOY_USER' ja existe"
 else
   sudo useradd -m -s /bin/bash "$DEPLOY_USER"
-  echo "${DEPLOY_USER}:${DEPLOY_PASS}" | sudo chpasswd
+  if [[ -n "${DEPLOY_PASS:-}" ]]; then
+    echo "${DEPLOY_USER}:${DEPLOY_PASS}" | sudo chpasswd
+    ok "Utilizador '$DEPLOY_USER' criado (password definida)"
+  else
+    DEPLOY_PASS=$(openssl rand -base64 12)
+    echo "${DEPLOY_USER}:${DEPLOY_PASS}" | sudo chpasswd
+    warn "Utilizador '$DEPLOY_USER' criado com password: $DEPLOY_PASS"
+  fi
   echo "$DEPLOY_USER ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/docker-compose" | sudo tee /etc/sudoers.d/deploy > /dev/null
-  ok "Utilizador '$DEPLOY_USER' criado (password definida)"
 fi
 
 # Garantir grupo docker
