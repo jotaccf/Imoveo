@@ -4,7 +4,7 @@
 #  Para Ubuntu Server 22.04 / 24.04 LTS
 #
 #  Uso:
-#    curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh -o install.sh && bash install.sh
+#    bash <(curl -fsSL https://raw.githubusercontent.com/jotaccf/Imoveo/main/install.sh)
 #
 #  Seguro para re-executar — salta passos ja concluidos.
 # ============================================================
@@ -21,27 +21,40 @@ NC='\033[0m'
 log()   { echo -e "${GREEN}[IMOVEO]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[AVISO]${NC} $1"; }
 error() { echo -e "${RED}[ERRO]${NC} $1"; }
-ask()   { echo -e "${BLUE}[?]${NC} $1"; }
 ok()    { echo -e "${GREEN}  ✓${NC} $1"; }
 skip()  { echo -e "${YELLOW}  →${NC} $1 (ja configurado)"; }
 
+# Guardar terminal em fd 3 para input interactivo
+# Funciona com: bash script.sh, bash <(curl ...), bash -c "$(curl ...)"
+if [ -t 0 ]; then
+  exec 3<&0
+elif [ -e /dev/tty ]; then
+  exec 3</dev/tty
+else
+  error "Este script requer um terminal interactivo."
+  exit 1
+fi
+
 prompt() {
-  echo -en "${BLUE}[?]${NC} $1 " >&2
-  read -r REPLY
-  echo "$REPLY"
+  printf "${BLUE}[?]${NC} %s " "$1" >&2
+  local answer
+  read -r answer <&3
+  printf '%s' "$answer"
 }
 
 prompt_secret() {
-  echo -en "${BLUE}[?]${NC} $1 " >&2
-  read -rs REPLY
-  echo "" >&2
-  echo "$REPLY"
+  printf "${BLUE}[?]${NC} %s " "$1" >&2
+  local answer
+  read -rs answer <&3
+  printf '\n' >&2
+  printf '%s' "$answer"
 }
 
 prompt_confirm() {
-  echo -en "${BLUE}[?]${NC} $1 (s/n) " >&2
-  read -r REPLY
-  [[ "$REPLY" == "s" || "$REPLY" == "S" || "$REPLY" == "y" || "$REPLY" == "Y" ]]
+  printf "${BLUE}[?]${NC} %s (s/n) " "$1" >&2
+  local answer
+  read -r answer <&3
+  [[ "$answer" == "s" || "$answer" == "S" || "$answer" == "y" || "$answer" == "Y" ]]
 }
 
 # Variaveis globais
