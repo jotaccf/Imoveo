@@ -282,16 +282,27 @@ ok "Directorios prontos"
 
 log "Passo 5 — Repositorio..."
 
+# Guardar .env.prod e .install-config se existirem
+TEMP_DIR=$(mktemp -d)
+[[ -f "$APP_DIR/.env.prod" ]] && sudo cp "$APP_DIR/.env.prod" "$TEMP_DIR/"
+[[ -f "$APP_DIR/.install-config" ]] && sudo cp "$APP_DIR/.install-config" "$TEMP_DIR/"
+
 if [[ -d "$APP_DIR/.git" ]]; then
   skip "Repositorio ja existe"
   log "  A actualizar..."
   sudo -u "$DEPLOY_USER" git -C "$APP_DIR" pull origin main 2>/dev/null || warn "Pull falhou — pode estar offline"
 else
-  # Limpar e clonar
-  sudo find "$APP_DIR" -mindepth 1 -not -name '.install-config' -not -name '.env.prod' -delete 2>/dev/null
+  sudo rm -rf "$APP_DIR"
+  sudo mkdir -p "$APP_DIR"
+  sudo chown "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
   sudo -u "$DEPLOY_USER" git clone https://github.com/jotaccf/Imoveo.git "$APP_DIR"
   ok "Repositorio clonado"
 fi
+
+# Restaurar ficheiros preservados
+[[ -f "$TEMP_DIR/.env.prod" ]] && sudo cp "$TEMP_DIR/.env.prod" "$APP_DIR/" && sudo chown "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR/.env.prod"
+[[ -f "$TEMP_DIR/.install-config" ]] && sudo cp "$TEMP_DIR/.install-config" "$APP_DIR/" && sudo chown "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR/.install-config"
+rm -rf "$TEMP_DIR"
 
 # ============================================================
 #  PASSO 6 — AMBIENTE (.env.prod)
@@ -427,11 +438,12 @@ sleep 60
 
 # Migrations
 log "A executar migrations..."
-sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml exec -T app npx prisma migrate deploy 2>/dev/null && ok "Migrations executadas" || warn "Migrations — verificar manualmente"
+DB_URL="postgresql://imoveo:${DB_PASSWORD}@postgres:5432/imoveo"
+sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T -e DATABASE_URL="$DB_URL" app npx prisma migrate deploy 2>&1 && ok "Migrations executadas" || warn "Migrations — verificar manualmente"
 
 # Seed
 log "A inserir dados iniciais..."
-sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml exec -T app npx prisma db seed 2>/dev/null && ok "Seed executado" || warn "Seed — dados podem ja existir"
+sudo -u "$DEPLOY_USER" docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T -e DATABASE_URL="$DB_URL" app npx prisma db seed 2>&1 && ok "Seed executado" || warn "Seed — dados podem ja existir"
 
 # ============================================================
 #  BACKUP DIARIO
