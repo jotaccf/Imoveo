@@ -97,7 +97,44 @@ export default function BackupsPage() {
   }
 
   function isAutomatic(filename: string) {
-    return !filename.includes('manual')
+    return !filename.includes('manual') && !filename.includes('export')
+  }
+
+  function handleExport() {
+    window.open('/api/backups/download', '_blank')
+  }
+
+  function handleDownloadFile(filename: string) {
+    window.open(`/api/backups/download?file=${encodeURIComponent(filename)}`, '_blank')
+  }
+
+  const [importing, setImporting] = useState(false)
+
+  async function handleImport() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.sql,.sql.gz'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      if (!confirm(`Importar "${file.name}"? Os dados actuais serao substituidos.`)) return
+
+      setImporting(true)
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/backups/upload', { method: 'POST', body: formData })
+      const json = await res.json()
+      setImporting(false)
+
+      if (res.ok) {
+        showMessage(json.message || 'Backup importado com sucesso', 'success')
+      } else {
+        showMessage(json.error || 'Erro ao importar', 'error')
+      }
+    }
+    input.click()
   }
 
   if (loading) return <div className="text-sm text-gray-400">A carregar...</div>
@@ -113,9 +150,17 @@ export default function BackupsPage() {
           </p>
         </div>
         {canManage && (
-          <Button onClick={handleCreate} disabled={creating}>
-            {creating ? 'A criar...' : 'Criar backup agora'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleImport} disabled={importing}>
+              {importing ? 'A importar...' : 'Importar backup'}
+            </Button>
+            <Button variant="secondary" onClick={handleExport}>
+              Exportar para PC
+            </Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? 'A criar...' : 'Criar backup'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -183,6 +228,12 @@ export default function BackupsPage() {
                   <td className="px-4 py-2.5 border-b border-gray-50">
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => handleDownloadFile(b.filename)}
+                        className="text-[11px] text-[#0C447C] hover:underline"
+                      >
+                        Download
+                      </button>
+                      <button
                         onClick={() => setRestoreFile(b.filename)}
                         className="text-[11px] text-brand-primary hover:underline"
                       >
@@ -215,7 +266,9 @@ export default function BackupsPage() {
         <div className="text-[11px] font-medium uppercase tracking-wider mb-2" style={{ color: '#0C447C' }}>Informacao</div>
         <div className="text-[12px] leading-relaxed" style={{ color: '#0C447C' }}>
           <p className="mb-1"><strong>Backups automaticos:</strong> executados diariamente as 02:00. Os ultimos 30 dias sao mantidos.</p>
-          <p className="mb-1"><strong>Restaurar:</strong> repoe a base de dados ao estado do backup seleccionado. Os dados actuais serao substituidos.</p>
+          <p className="mb-1"><strong>Exportar para PC:</strong> cria um backup e descarrega para o seu computador. Ideal para migrar dados entre servidores.</p>
+          <p className="mb-1"><strong>Importar backup:</strong> carrega um ficheiro .sql ou .sql.gz para restaurar. Os dados actuais serao substituidos.</p>
+          <p className="mb-1"><strong>Restaurar:</strong> repoe a base de dados ao estado de um backup existente no servidor.</p>
           <p><strong>Localizacao no servidor:</strong> <code className="bg-white/50 px-1 rounded">/opt/backups/imoveo/</code></p>
         </div>
       </div>
