@@ -62,11 +62,21 @@ export default function AnalisePage() {
 
   return (
     <div className="space-y-5">
-      {/* Year selector */}
+      {/* Year selector + PDF export */}
       <div className="flex items-center gap-2">
         {years.map((y) => (
           <Button key={y} variant={y === ano ? 'primary' : 'secondary'} onClick={() => setAno(y)}>{y}</Button>
         ))}
+        <div className="ml-auto">
+          <Button variant="secondary" onClick={() => {
+            const link = document.createElement('a')
+            link.href = `/api/analise/pdf?ano=${ano}`
+            link.download = `Imoveo_Analise_${ano}.pdf`
+            link.click()
+          }}>
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Section 1 — Rentabilidade Global */}

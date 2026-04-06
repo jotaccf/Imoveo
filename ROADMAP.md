@@ -22,13 +22,16 @@
 - [x] Ficheiros Electron (desktop app)
 - [x] Guia de deploy (DEPLOY.md)
 
+## v1.0.1 — Backup e PDF (2026-04-06)
+- [x] Backup/restore de dados via interface
+- [x] Exportacao PDF de analise financeira
+- [x] Fix: restore limpa schema antes de importar (evita conflitos)
+
 ## v1.1.0 — Melhorias UX e Reporting 📋 Planned
-- [ ] Exportacao PDF de analise financeira
 - [ ] Comparacao YoY (ano vs ano anterior)
 - [ ] Alertas automaticos por threshold (yield, ocupacao, racio)
 - [ ] Gestao de contratos de arrendamento (inicio, fim, valor, renovacao)
 - [ ] Dashboard de gestao de contratos (expiracoes, renovacoes)
-- [ ] Backup/restore de dados via interface
 
 ## v1.2.0 — Electron Desktop 📋 Planned
 - [ ] Electron wrapper com PostgreSQL embutido
