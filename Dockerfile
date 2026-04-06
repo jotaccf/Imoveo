@@ -28,6 +28,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/VERSION ./VERSION
 COPY --from=builder /app/update.sh ./update.sh
+COPY --from=builder /app/update-watcher.sh ./update-watcher.sh
 
 RUN mkdir -p uploads && chown nextjs:nodejs uploads
 USER nextjs

@@ -385,6 +385,63 @@ NGINXEOF
   ok "Nginx configurado: ${DOMAIN} -> localhost:${APP_PORT}"
 fi
 
+# Pagina de manutencao — config Nginx alternativa
+sudo mkdir -p /var/www/maintenance
+sudo cp "$APP_DIR/maintenance.html" /var/www/maintenance/index.html
+sudo touch /var/www/maintenance/update.log
+sudo chown -R "$DEPLOY_USER:$DEPLOY_USER" /var/www/maintenance
+
+if [[ ! -f "/etc/nginx/sites-available/imoveo-maintenance" ]]; then
+  sudo tee /etc/nginx/sites-available/imoveo-maintenance > /dev/null << MAINTEOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    root /var/www/maintenance;
+
+    # Pagina de manutencao
+    location / {
+        try_files /index.html =503;
+    }
+
+    # Logs do update — servidos como ficheiro estatico
+    location /maintenance/update.log {
+        alias /var/www/maintenance/update.log;
+        add_header Content-Type text/plain;
+        add_header Cache-Control "no-cache, no-store";
+        add_header Access-Control-Allow-Origin "*";
+    }
+
+    # Health check — proxy para app (para detectar quando volta)
+    location /api/health {
+        proxy_pass http://127.0.0.1:${APP_PORT};
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 2s;
+        error_page 502 503 504 = @health_down;
+    }
+
+    location @health_down {
+        return 503 '{"status":"updating"}';
+        add_header Content-Type application/json;
+    }
+
+    # Version check — proxy para app
+    location /api/admin/version {
+        proxy_pass http://127.0.0.1:${APP_PORT};
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 2s;
+        error_page 502 503 504 = @version_down;
+    }
+
+    location @version_down {
+        return 503 '{"error":"updating"}';
+        add_header Content-Type application/json;
+    }
+}
+MAINTEOF
+  ok "Config Nginx de manutencao criada"
+fi
+
 sudo nginx -t 2>/dev/null && sudo systemctl restart nginx && sudo systemctl enable nginx
 ok "Nginx activo"
 
@@ -506,6 +563,16 @@ if sudo -u "$DEPLOY_USER" crontab -l 2>/dev/null | grep -q "healthcheck.sh"; the
 else
   (sudo -u "$DEPLOY_USER" crontab -l 2>/dev/null; echo "*/5 * * * * $HEALTH_SCRIPT") | sudo -u "$DEPLOY_USER" crontab -
   ok "Health check agendado (cada 5 min)"
+fi
+
+# Update watcher — verifica a cada minuto se foi pedida actualizacao via interface
+WATCHER_SCRIPT="$APP_DIR/update-watcher.sh"
+sudo chmod +x "$WATCHER_SCRIPT"
+if sudo -u "$DEPLOY_USER" crontab -l 2>/dev/null | grep -q "update-watcher.sh"; then
+  skip "Update watcher ja agendado"
+else
+  (sudo -u "$DEPLOY_USER" crontab -l 2>/dev/null; echo "* * * * * $WATCHER_SCRIPT") | sudo -u "$DEPLOY_USER" crontab -
+  ok "Update watcher agendado (cada 1 min)"
 fi
 
 # ============================================================

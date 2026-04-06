@@ -8,6 +8,7 @@ import { hasPermission, type Role } from '@/lib/permissions'
 const PATHNAME_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/imoveis': 'Imoveis',
+  '/contratos': 'Contratos',
   '/importar': 'Importar CSV',
   '/lancamentos': 'Lancamentos Manuais',
   '/pendentes': 'Faturas Pendentes',
@@ -69,21 +70,15 @@ export function Topbar() {
   }, [isAdmin])
 
   async function handleUpdate() {
-    if (!confirm('Tem a certeza que pretende actualizar? A aplicacao ira reiniciar.')) return
+    if (!confirm('Tem a certeza que pretende actualizar?\n\nO sistema entra em modo de manutencao e todos os utilizadores serao redirecionados.')) return
     setUpdating(true)
-    await fetch('/api/admin/update', { method: 'POST' }).catch(() => {})
-    // Poll health endpoint ate a app voltar
-    const poll = setInterval(async () => {
-      try {
-        const res = await fetch('/api/health')
-        if (res.ok) {
-          clearInterval(poll)
-          window.location.reload()
-        }
-      } catch { /* app ainda a reiniciar */ }
-    }, 5000)
-    // Timeout apos 5 min
-    setTimeout(() => { clearInterval(poll); setUpdating(false) }, 300000)
+    try {
+      await fetch('/api/admin/update', { method: 'POST' })
+    } catch { /* ignore */ }
+    // Aguardar que o watcher active a pagina de manutencao, depois redirecionar
+    setTimeout(() => {
+      window.location.href = window.location.origin + '/?maintenance=1'
+    }, 3000)
   }
 
   return (
@@ -105,7 +100,7 @@ export function Topbar() {
       )}
       {updating && (
         <div className="flex items-center justify-center px-5 py-2 text-[12px]" style={{ background: '#FAEEDA', borderBottom: '1px solid #E5C07B' }}>
-          <span style={{ color: '#633806' }}>A actualizar... A aplicacao ira reiniciar em breve. Nao feche esta pagina.</span>
+          <span style={{ color: '#633806' }}>A iniciar actualizacao... A redirecionar para pagina de manutencao.</span>
         </div>
       )}
 

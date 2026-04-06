@@ -65,6 +65,12 @@ enum Periodicidade {
   ANUAL
 }
 
+enum EstadoContrato {
+  ATIVO
+  EXPIRADO
+  TERMINADO
+}
+
 model Utilizador {
   id           String    @id @default(cuid())
   nome         String
@@ -99,6 +105,7 @@ model Imovel {
   classificacoes FaturaClassificacao[]
   lancamentos    LancamentoManual[]
   fracoes        Fracao[]
+  contratos      Contrato[]
 
   @@map("imoveis")
 }
@@ -132,6 +139,7 @@ model Fracao {
   nifMaps        NifImovelMap[]
   classificacoes FaturaClassificacao[]
   lancamentos    LancamentoManual[]
+  contratos      Contrato[]
 
   @@map("fracoes")
 }
@@ -272,4 +280,37 @@ model LancamentoManual {
   @@index([imovelId])
   @@index([dataDoc])
   @@map("lancamentos_manuais")
+}
+
+model Contrato {
+  id               String          @id @default(cuid())
+  fracaoId         String
+  imovelId         String
+  nomeInquilino    String
+  nifInquilino     String?
+  contacto         String?
+  nomeFiador       String?
+  nifFiador        String?
+  contactoFiador   String?
+  parentesco       String?
+  valorRenda       Decimal         @db.Decimal(12, 2)
+  dataInicio       DateTime
+  dataFim          DateTime?
+  renovacaoAuto    Boolean         @default(true)
+  periodoRenovacao Int             @default(12)
+  caucao           Decimal?        @db.Decimal(12, 2)
+  notas            String?
+  comunicadoAT     Boolean         @default(false)
+  dataComunicacaoAT DateTime?
+  estado           EstadoContrato  @default(ATIVO)
+  criadoEm         DateTime        @default(now())
+  atualizadoEm     DateTime        @updatedAt
+
+  fracao  Fracao @relation(fields: [fracaoId], references: [id])
+  imovel  Imovel @relation(fields: [imovelId], references: [id])
+
+  @@index([fracaoId])
+  @@index([imovelId])
+  @@index([dataFim])
+  @@map("contratos")
 }

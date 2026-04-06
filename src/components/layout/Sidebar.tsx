@@ -18,6 +18,7 @@ import {
   Calculator,
   Settings,
   Database,
+  FileSignature,
 } from 'lucide-react'
 import { ImoveoIcon } from '@/components/ui/ImoveoIcon'
 import { hasPermission, type Role } from '@/lib/permissions'
@@ -56,6 +57,7 @@ export function Sidebar() {
       items: [
         { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
         { label: 'Imoveis', href: '/imoveis', icon: <Building2 size={16} />, permission: 'imoveis:ver' },
+        { label: 'Contratos', href: '/contratos', icon: <FileSignature size={16} />, permission: 'imoveis:ver' },
       ],
     },
     {
