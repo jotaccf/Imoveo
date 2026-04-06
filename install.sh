@@ -26,20 +26,20 @@ ok()    { echo -e "${GREEN}  ✓${NC} $1"; }
 skip()  { echo -e "${YELLOW}  →${NC} $1 (ja configurado)"; }
 
 prompt() {
-  echo -en "${BLUE}[?]${NC} $1 "
+  echo -en "${BLUE}[?]${NC} $1 " >&2
   read -r REPLY
   echo "$REPLY"
 }
 
 prompt_secret() {
-  echo -en "${BLUE}[?]${NC} $1 "
+  echo -en "${BLUE}[?]${NC} $1 " >&2
   read -rs REPLY
-  echo ""
+  echo "" >&2
   echo "$REPLY"
 }
 
 prompt_confirm() {
-  echo -en "${BLUE}[?]${NC} $1 (s/n) "
+  echo -en "${BLUE}[?]${NC} $1 (s/n) " >&2
   read -r REPLY
   [[ "$REPLY" == "s" || "$REPLY" == "S" || "$REPLY" == "y" || "$REPLY" == "Y" ]]
 }
