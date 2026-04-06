@@ -196,6 +196,13 @@ if id "$DEPLOY_USER" &>/dev/null; then
   skip "Utilizador '$DEPLOY_USER' ja existe"
 else
   sudo useradd -m -s /bin/bash "$DEPLOY_USER"
+  log "A definir password para o utilizador '$DEPLOY_USER':"
+  sudo passwd "$DEPLOY_USER" < /dev/tty 2>/dev/null || sudo passwd "$DEPLOY_USER" <&3 2>/dev/null || {
+    warn "Nao foi possivel definir password automaticamente."
+    warn "Execute manualmente: sudo passwd deploy"
+  }
+  # Adicionar ao sudoers para docker
+  echo "$DEPLOY_USER ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/docker-compose" | sudo tee /etc/sudoers.d/deploy > /dev/null
   ok "Utilizador '$DEPLOY_USER' criado"
 fi
 
