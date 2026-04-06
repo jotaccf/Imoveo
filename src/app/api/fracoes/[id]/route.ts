@@ -11,6 +11,11 @@ const updateSchema = z.object({
   dataEntradaMercado: z.coerce.date().nullable().optional(),
   estado: z.enum(['OCUPADO', 'VAGO', 'EM_OBRAS']).optional(),
   imovelId: z.string().optional(),
+  letraQuarto: z.string().nullable().optional(),
+  tipoQuarto: z.string().nullable().optional(),
+  casaBanho: z.string().nullable().optional(),
+  mobilia: z.string().nullable().optional(),
+  numeroAnexo: z.string().nullable().optional(),
 })
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

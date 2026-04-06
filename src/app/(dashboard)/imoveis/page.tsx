@@ -21,6 +21,11 @@ interface Fracao {
   nifInquilino: string | null
   dataEntradaMercado: string | null
   estado: string
+  letraQuarto: string | null
+  tipoQuarto: string | null
+  casaBanho: string | null
+  mobilia: string | null
+  numeroAnexo: string | null
 }
 
 interface Imovel {
@@ -35,6 +40,30 @@ interface Imovel {
   areaMt2: string | null
   estado: string
   fracoes?: Fracao[]
+  // Contrato fields
+  fracaoAutonoma: string | null
+  andar: string | null
+  freguesia: string | null
+  concelho: string | null
+  artigoMatricial: string | null
+  descricaoRP: string | null
+  licencaUtilizacao: string | null
+  dataLicenca: string | null
+  entidadeLicenca: string | null
+  dataContratoArrendamento: string | null
+  modeloDespesas: string
+  incluirSubtracaoCaucao: boolean
+  // Proprietarios fields
+  incluirProprietarios: boolean
+  nomeProprietario1: string | null
+  ccProprietario1: string | null
+  nomeProprietario2: string | null
+  nifProprietario2: string | null
+  ccProprietario2: string | null
+  regimeCasamento: string | null
+  moradaProprietarios: string | null
+  // Equipamentos
+  equipamentos: string | null
 }
 
 const ESTADO_BADGE: Record<string, 'green' | 'red' | 'amber' | 'gray'> = {
@@ -68,8 +97,35 @@ const FRACAO_ESTADO_OPTIONS = [
 
 const TIPOS_COM_QUARTOS = ['APARTAMENTO', 'MORADIA', 'OUTRO']
 
-const emptyForm = { codigo: '', nome: '', tipo: 'APARTAMENTO', localizacao: '', morada: '', nifProprietario: '', estado: 'ACTIVO', valorPatrimonial: '', areaMt2: '' }
-const emptyFracaoForm = { nome: '', renda: '', nifInquilino: '', estado: 'VAGO', dataEntradaMercado: '' }
+const MODELO_DESPESAS_OPTIONS = [
+  { value: 'INCLUIDO', label: 'Incluido' },
+  { value: 'INDIVIDUAL', label: 'Individual' },
+]
+
+type TabKey = 'geral' | 'contrato' | 'proprietarios' | 'equipamentos'
+
+const emptyForm = {
+  codigo: '', nome: '', tipo: 'APARTAMENTO', localizacao: '', morada: '', nifProprietario: '', estado: 'ACTIVO', valorPatrimonial: '', areaMt2: '',
+  fracaoAutonoma: '', andar: '', freguesia: '', concelho: '', artigoMatricial: '', descricaoRP: '',
+  licencaUtilizacao: '', dataLicenca: '', entidadeLicenca: '',
+  dataContratoArrendamento: '', modeloDespesas: 'INCLUIDO', incluirSubtracaoCaucao: false,
+  incluirProprietarios: true, nomeProprietario1: '', ccProprietario1: '',
+  nomeProprietario2: '', nifProprietario2: '', ccProprietario2: '',
+  regimeCasamento: '', moradaProprietarios: '',
+  equipamentos: '',
+}
+const TIPO_QUARTO_OPTIONS = [
+  { value: '', label: 'Selecionar...' },
+  { value: 'Suite', label: 'Suite' },
+  { value: 'Quarto Privado', label: 'Quarto Privado' },
+  { value: 'Quarto Partilhado', label: 'Quarto Partilhado' },
+]
+const CASA_BANHO_OPTIONS = [
+  { value: '', label: 'Selecionar...' },
+  { value: 'Privativa', label: 'Privativa' },
+  { value: 'Partilhada', label: 'Partilhada' },
+]
+const emptyFracaoForm = { nome: '', renda: '', nifInquilino: '', estado: 'VAGO', dataEntradaMercado: '', letraQuarto: '', tipoQuarto: '', casaBanho: '', mobilia: '', numeroAnexo: '' }
 
 export default function ImoveisPage() {
   const { data: session } = useSession()
@@ -82,6 +138,7 @@ export default function ImoveisPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabKey>('geral')
   const [loading, setLoading] = useState(true)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [fracaoModal, setFracaoModal] = useState(false)
@@ -142,11 +199,30 @@ export default function ImoveisPage() {
     })
   }
 
-  function openCreate() { setEditId(null); setForm(emptyForm); setModalOpen(true) }
+  function openCreate() { setEditId(null); setForm(emptyForm); setActiveTab('geral'); setModalOpen(true) }
 
   function openEdit(im: Imovel) {
     setEditId(im.id)
-    setForm({ codigo: im.codigo, nome: im.nome, tipo: im.tipo, localizacao: im.localizacao, morada: im.morada ?? '', nifProprietario: im.nifProprietario ?? '', estado: im.estado, valorPatrimonial: im.valorPatrimonial ?? '', areaMt2: im.areaMt2 ?? '' })
+    setForm({
+      codigo: im.codigo, nome: im.nome, tipo: im.tipo, localizacao: im.localizacao,
+      morada: im.morada ?? '', nifProprietario: im.nifProprietario ?? '',
+      estado: im.estado, valorPatrimonial: im.valorPatrimonial ?? '', areaMt2: im.areaMt2 ?? '',
+      fracaoAutonoma: im.fracaoAutonoma ?? '', andar: im.andar ?? '',
+      freguesia: im.freguesia ?? '', concelho: im.concelho ?? '',
+      artigoMatricial: im.artigoMatricial ?? '', descricaoRP: im.descricaoRP ?? '',
+      licencaUtilizacao: im.licencaUtilizacao ?? '', dataLicenca: im.dataLicenca ?? '',
+      entidadeLicenca: im.entidadeLicenca ?? '',
+      dataContratoArrendamento: im.dataContratoArrendamento ? String(im.dataContratoArrendamento).split('T')[0] : '',
+      modeloDespesas: im.modeloDespesas ?? 'INCLUIDO',
+      incluirSubtracaoCaucao: im.incluirSubtracaoCaucao ?? false,
+      incluirProprietarios: im.incluirProprietarios ?? true,
+      nomeProprietario1: im.nomeProprietario1 ?? '', ccProprietario1: im.ccProprietario1 ?? '',
+      nomeProprietario2: im.nomeProprietario2 ?? '', nifProprietario2: im.nifProprietario2 ?? '',
+      ccProprietario2: im.ccProprietario2 ?? '',
+      regimeCasamento: im.regimeCasamento ?? '', moradaProprietarios: im.moradaProprietarios ?? '',
+      equipamentos: im.equipamentos ?? '',
+    })
+    setActiveTab('geral')
     setModalOpen(true)
   }
 
@@ -177,13 +253,13 @@ export default function ImoveisPage() {
   function openEditFracao(imovelId: string, f: Fracao) {
     setFracaoImovelId(imovelId)
     setEditFracaoId(f.id)
-    setFracaoForm({ nome: f.nome, renda: f.renda, nifInquilino: f.nifInquilino ?? '', estado: f.estado, dataEntradaMercado: f.dataEntradaMercado ? String(f.dataEntradaMercado).split('T')[0] : '' })
+    setFracaoForm({ nome: f.nome, renda: f.renda, nifInquilino: f.nifInquilino ?? '', estado: f.estado, dataEntradaMercado: f.dataEntradaMercado ? String(f.dataEntradaMercado).split('T')[0] : '', letraQuarto: f.letraQuarto ?? '', tipoQuarto: f.tipoQuarto ?? '', casaBanho: f.casaBanho ?? '', mobilia: f.mobilia ?? '', numeroAnexo: f.numeroAnexo ?? '' })
     setFracaoModal(true)
   }
 
   async function handleSaveFracao() {
     if (!fracaoImovelId) return
-    const payload = { imovelId: fracaoImovelId, nome: fracaoForm.nome, renda: fracaoForm.renda, nifInquilino: fracaoForm.nifInquilino || null, estado: fracaoForm.estado, dataEntradaMercado: fracaoForm.dataEntradaMercado || null }
+    const payload = { imovelId: fracaoImovelId, nome: fracaoForm.nome, renda: fracaoForm.renda, nifInquilino: fracaoForm.nifInquilino || null, estado: fracaoForm.estado, dataEntradaMercado: fracaoForm.dataEntradaMercado || null, letraQuarto: fracaoForm.letraQuarto || null, tipoQuarto: fracaoForm.tipoQuarto || null, casaBanho: fracaoForm.casaBanho || null, mobilia: fracaoForm.mobilia || null, numeroAnexo: fracaoForm.numeroAnexo || null }
     if (editFracaoId) {
       await fetch(`/api/fracoes/${editFracaoId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     } else {
@@ -428,19 +504,128 @@ export default function ImoveisPage() {
       )}
 
       {/* Create / Edit Imovel Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Editar imovel' : 'Adicionar imovel'}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Editar imovel' : 'Adicionar imovel'} className="max-w-2xl"
         footer={<div className="flex gap-2 ml-auto"><Button variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button><Button onClick={handleSave}>{editId ? 'Guardar' : 'Criar'}</Button></div>}>
-        <div className="space-y-3">
-          <Input label="Codigo" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} />
-          <Input label="Nome / Designacao" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-          <Select label="Tipo" options={TIPO_OPTIONS} value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} />
-          <Input label="Localizacao" value={form.localizacao} onChange={(e) => setForm({ ...form, localizacao: e.target.value })} />
-          <Input label="Morada" value={form.morada} onChange={(e) => setForm({ ...form, morada: e.target.value })} />
-          <Input label="NIF Proprietario" value={form.nifProprietario} onChange={(e) => setForm({ ...form, nifProprietario: e.target.value })} />
-          <Select label="Estado" options={ESTADO_OPTIONS} value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })} />
-          <Input label="Valor patrimonial / Market value (€)" type="number" step="0.01" value={form.valorPatrimonial} onChange={(e) => setForm({ ...form, valorPatrimonial: e.target.value })} />
-          <Input label="Area (m²)" type="number" step="0.01" value={form.areaMt2} onChange={(e) => setForm({ ...form, areaMt2: e.target.value })} />
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid #e5e7eb', paddingBottom: '0' }}>
+          {([['geral', 'Geral'], ['contrato', 'Contrato'], ['proprietarios', 'Proprietarios'], ['equipamentos', 'Equipamentos']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              style={{
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: activeTab === key ? 600 : 400,
+                color: activeTab === key ? '#1D9E75' : '#6b7280',
+                borderBottom: activeTab === key ? '2px solid #1D9E75' : '2px solid transparent',
+                background: 'none',
+                cursor: 'pointer',
+                marginBottom: '-1px',
+                transition: 'color 0.15s, border-color 0.15s',
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+
+        {/* Tab: Geral */}
+        {activeTab === 'geral' && (
+          <div className="space-y-3">
+            <Input label="Codigo" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} />
+            <Input label="Nome / Designacao" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+            <Select label="Tipo" options={TIPO_OPTIONS} value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} />
+            <Input label="Localizacao" value={form.localizacao} onChange={(e) => setForm({ ...form, localizacao: e.target.value })} />
+            <Input label="Morada" value={form.morada} onChange={(e) => setForm({ ...form, morada: e.target.value })} />
+            <Input label="NIF Proprietario" value={form.nifProprietario} onChange={(e) => setForm({ ...form, nifProprietario: e.target.value })} />
+            <Select label="Estado" options={ESTADO_OPTIONS} value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })} />
+            <Input label="Valor patrimonial / Market value (€)" type="number" step="0.01" value={form.valorPatrimonial} onChange={(e) => setForm({ ...form, valorPatrimonial: e.target.value })} />
+            <Input label="Area (m²)" type="number" step="0.01" value={form.areaMt2} onChange={(e) => setForm({ ...form, areaMt2: e.target.value })} />
+          </div>
+        )}
+
+        {/* Tab: Contrato */}
+        {activeTab === 'contrato' && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Fracao autonoma" value={form.fracaoAutonoma} onChange={(e) => setForm({ ...form, fracaoAutonoma: e.target.value })} />
+              <Input label="Andar" value={form.andar} onChange={(e) => setForm({ ...form, andar: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Freguesia" value={form.freguesia} onChange={(e) => setForm({ ...form, freguesia: e.target.value })} />
+              <Input label="Concelho" value={form.concelho} onChange={(e) => setForm({ ...form, concelho: e.target.value })} />
+            </div>
+            <Input label="Artigo matricial" value={form.artigoMatricial} onChange={(e) => setForm({ ...form, artigoMatricial: e.target.value })} />
+            <Input label="Descricao do registo predial" value={form.descricaoRP} onChange={(e) => setForm({ ...form, descricaoRP: e.target.value })} />
+            <Input label="Data do contrato de arrendamento" type="date" value={form.dataContratoArrendamento} onChange={(e) => setForm({ ...form, dataContratoArrendamento: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Licenca de utilizacao" value={form.licencaUtilizacao} onChange={(e) => setForm({ ...form, licencaUtilizacao: e.target.value })} />
+              <Input label="Data da licenca" value={form.dataLicenca} onChange={(e) => setForm({ ...form, dataLicenca: e.target.value })} />
+            </div>
+            <Input label="Entidade da licenca" value={form.entidadeLicenca} onChange={(e) => setForm({ ...form, entidadeLicenca: e.target.value })} />
+            <Select label="Modelo de despesas" options={MODELO_DESPESAS_OPTIONS} value={form.modeloDespesas} onChange={(e) => setForm({ ...form, modeloDespesas: e.target.value })} />
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.incluirSubtracaoCaucao}
+                onChange={(e) => setForm({ ...form, incluirSubtracaoCaucao: e.target.checked })}
+                className="rounded border-gray-300"
+                style={{ accentColor: '#1D9E75' }}
+              />
+              Incluir subtracao de caucao
+            </label>
+          </div>
+        )}
+
+        {/* Tab: Proprietarios */}
+        {activeTab === 'proprietarios' && (
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.incluirProprietarios}
+                onChange={(e) => setForm({ ...form, incluirProprietarios: e.target.checked })}
+                className="rounded border-gray-300"
+                style={{ accentColor: '#1D9E75' }}
+              />
+              Incluir proprietarios no contrato
+            </label>
+            <div className="border-t border-gray-100 pt-3">
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Proprietario 1</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Nome" value={form.nomeProprietario1} onChange={(e) => setForm({ ...form, nomeProprietario1: e.target.value })} />
+                <Input label="CC" value={form.ccProprietario1} onChange={(e) => setForm({ ...form, ccProprietario1: e.target.value })} />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 pt-3">
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Proprietario 2</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Nome" value={form.nomeProprietario2} onChange={(e) => setForm({ ...form, nomeProprietario2: e.target.value })} />
+                <Input label="NIF" value={form.nifProprietario2} onChange={(e) => setForm({ ...form, nifProprietario2: e.target.value })} />
+              </div>
+              <div className="mt-3">
+                <Input label="CC" value={form.ccProprietario2} onChange={(e) => setForm({ ...form, ccProprietario2: e.target.value })} />
+              </div>
+            </div>
+            <Input label="Regime de casamento" value={form.regimeCasamento} onChange={(e) => setForm({ ...form, regimeCasamento: e.target.value })} />
+            <Input label="Morada dos proprietarios" value={form.moradaProprietarios} onChange={(e) => setForm({ ...form, moradaProprietarios: e.target.value })} />
+          </div>
+        )}
+
+        {/* Tab: Equipamentos */}
+        {activeTab === 'equipamentos' && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">Equipamentos</label>
+            <textarea
+              value={form.equipamentos}
+              onChange={(e) => setForm({ ...form, equipamentos: e.target.value })}
+              rows={8}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+              placeholder="Lista de equipamentos incluidos no imovel..."
+              style={{ resize: 'vertical' }}
+            />
+          </div>
+        )}
       </Modal>
 
       {/* Create / Edit Fracao Modal */}
@@ -448,10 +633,39 @@ export default function ImoveisPage() {
         footer={<div className="flex gap-2 ml-auto"><Button variant="ghost" onClick={() => setFracaoModal(false)}>Cancelar</Button><Button onClick={handleSaveFracao}>{editFracaoId ? 'Guardar' : 'Criar'}</Button></div>}>
         <div className="space-y-3">
           <Input label="Nome" value={fracaoForm.nome} onChange={(e) => setFracaoForm({ ...fracaoForm, nome: e.target.value })} />
-          <Input label="Renda" type="number" value={fracaoForm.renda} onChange={(e) => setFracaoForm({ ...fracaoForm, renda: e.target.value })} />
-          <Input label="NIF Inquilino" value={fracaoForm.nifInquilino} onChange={(e) => setFracaoForm({ ...fracaoForm, nifInquilino: e.target.value })} />
-          <Select label="Estado" options={FRACAO_ESTADO_OPTIONS} value={fracaoForm.estado} onChange={(e) => setFracaoForm({ ...fracaoForm, estado: e.target.value })} />
-          <Input label="Data entrada no mercado" type="date" value={fracaoForm.dataEntradaMercado} onChange={(e) => setFracaoForm({ ...fracaoForm, dataEntradaMercado: e.target.value })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Renda (EUR)" type="number" value={fracaoForm.renda} onChange={(e) => setFracaoForm({ ...fracaoForm, renda: e.target.value })} />
+            <Select label="Estado" options={FRACAO_ESTADO_OPTIONS} value={fracaoForm.estado} onChange={(e) => setFracaoForm({ ...fracaoForm, estado: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="NIF Inquilino" value={fracaoForm.nifInquilino} onChange={(e) => setFracaoForm({ ...fracaoForm, nifInquilino: e.target.value })} />
+            <Input label="Data entrada no mercado" type="date" value={fracaoForm.dataEntradaMercado} onChange={(e) => setFracaoForm({ ...fracaoForm, dataEntradaMercado: e.target.value })} />
+          </div>
+
+          {/* Detalhes para Contrato */}
+          <div className="pt-3 border-t border-gray-200">
+            <h4 className="text-sm font-semibold mb-3" style={{ color: '#0D1B1A' }}>Detalhes para Contrato</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <Input label="Letra do quarto" value={fracaoForm.letraQuarto} onChange={(e) => setFracaoForm({ ...fracaoForm, letraQuarto: e.target.value })} placeholder="A" />
+              <Select label="Tipo quarto" options={TIPO_QUARTO_OPTIONS} value={fracaoForm.tipoQuarto} onChange={(e) => setFracaoForm({ ...fracaoForm, tipoQuarto: e.target.value })} />
+              <Select label="Casa de banho" options={CASA_BANHO_OPTIONS} value={fracaoForm.casaBanho} onChange={(e) => setFracaoForm({ ...fracaoForm, casaBanho: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Input label="Numero anexo (planta)" value={fracaoForm.numeroAnexo} onChange={(e) => setFracaoForm({ ...fracaoForm, numeroAnexo: e.target.value })} placeholder="I" />
+              <div />
+            </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>Mobilia incluida</label>
+              <textarea
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                style={{ borderColor: '#D1D5DB' }}
+                rows={3}
+                value={fracaoForm.mobilia}
+                onChange={(e) => setFracaoForm({ ...fracaoForm, mobilia: e.target.value })}
+                placeholder="cama, secretaria, cadeira, guarda fatos, candeeiro"
+              />
+            </div>
+          </div>
         </div>
       </Modal>
 

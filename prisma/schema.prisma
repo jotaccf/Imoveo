@@ -101,6 +101,29 @@ model Imovel {
   criadoEm        DateTime     @default(now())
   atualizadoEm    DateTime     @updatedAt
 
+  // Dados para contrato
+  fracaoAutonoma          String?
+  andar                   String?
+  freguesia               String?
+  concelho                String?
+  artigoMatricial         String?
+  descricaoRP             String?
+  licencaUtilizacao       String?
+  dataLicenca             String?
+  entidadeLicenca         String?
+  incluirProprietarios    Boolean  @default(true)
+  nomeProprietario1       String?
+  ccProprietario1         String?
+  nomeProprietario2       String?
+  nifProprietario2        String?
+  ccProprietario2         String?
+  regimeCasamento         String?
+  moradaProprietarios     String?
+  dataContratoArrendamento DateTime?
+  equipamentos            String?
+  modeloDespesas          String   @default("INCLUIDO")
+  incluirSubtracaoCaucao  Boolean  @default(false)
+
   nifMaps        NifImovelMap[]
   classificacoes FaturaClassificacao[]
   lancamentos    LancamentoManual[]
@@ -134,6 +157,13 @@ model Fracao {
   estado              EstadoFracao @default(VAGO)
   criadoEm            DateTime     @default(now())
   atualizadoEm        DateTime     @updatedAt
+
+  // Dados para contrato
+  letraQuarto         String?
+  tipoQuarto          String?
+  casaBanho           String?
+  mobilia             String?
+  numeroAnexo         String?
 
   imovel         Imovel              @relation(fields: [imovelId], references: [id])
   nifMaps        NifImovelMap[]
@@ -303,6 +333,19 @@ model Contrato {
   comunicadoAT     Boolean         @default(false)
   dataComunicacaoAT DateTime?
   estado           EstadoContrato  @default(ATIVO)
+
+  // Dados pessoais inquilino para contrato PDF
+  genero              String?
+  nacionalidade       String?
+  tipoDocumento       String?
+  numDocumento        String?
+  validadeDocumento   DateTime?
+  estadoCivil         String?
+  naturalidade        String?
+  moradaInquilino     String?
+  usarMoradaImovel    Boolean  @default(true)
+  localAssinatura     String?
+  dataAssinatura      DateTime?
   criadoEm         DateTime        @default(now())
   atualizadoEm     DateTime        @updatedAt
 

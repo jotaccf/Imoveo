@@ -31,6 +31,17 @@ interface Contrato {
   nomeInquilino: string
   nifInquilino: string | null
   contacto: string | null
+  genero: string | null
+  nacionalidade: string | null
+  tipoDocumento: string | null
+  numDocumento: string | null
+  validadeDocumento: string | null
+  estadoCivil: string | null
+  naturalidade: string | null
+  moradaInquilino: string | null
+  usarMoradaImovel: boolean
+  localAssinatura: string | null
+  dataAssinatura: string | null
   nomeFiador: string | null
   nifFiador: string | null
   contactoFiador: string | null
@@ -53,6 +64,7 @@ interface ImovelWithFracoes {
   id: string
   codigo: string
   nome: string
+  localizacao: string
   fracoes: Fracao[]
 }
 
@@ -86,12 +98,45 @@ const PARENTESCO_OPTIONS = [
   { value: 'Outro', label: 'Outro' },
 ]
 
+const GENERO_OPTIONS = [
+  { value: '', label: 'Selecionar...' },
+  { value: 'Masculino', label: 'Masculino' },
+  { value: 'Feminino', label: 'Feminino' },
+]
+
+const TIPO_DOCUMENTO_OPTIONS = [
+  { value: '', label: 'Selecionar...' },
+  { value: 'CC', label: 'Cartao de Cidadao' },
+  { value: 'Passaporte', label: 'Passaporte' },
+  { value: 'Titulo de Residencia', label: 'Titulo de Residencia' },
+]
+
+const ESTADO_CIVIL_OPTIONS = [
+  { value: '', label: 'Selecionar...' },
+  { value: 'Solteiro', label: 'Solteiro(a)' },
+  { value: 'Casado', label: 'Casado(a)' },
+  { value: 'Divorciado', label: 'Divorciado(a)' },
+  { value: 'Viuvo', label: 'Viuvo(a)' },
+  { value: 'Uniao de Facto', label: 'Uniao de Facto' },
+]
+
 const emptyForm = {
   imovelId: '',
   fracaoId: '',
   nomeInquilino: '',
   nifInquilino: '',
   contacto: '',
+  genero: '',
+  nacionalidade: 'Portuguesa',
+  tipoDocumento: '',
+  numDocumento: '',
+  validadeDocumento: '',
+  estadoCivil: '',
+  naturalidade: '',
+  moradaInquilino: '',
+  usarMoradaImovel: true,
+  localAssinatura: '',
+  dataAssinatura: new Date().toISOString().slice(0, 10),
   nomeFiador: '',
   nifFiador: '',
   contactoFiador: '',
@@ -171,6 +216,17 @@ export default function ContratosPage() {
       nomeInquilino: c.nomeInquilino,
       nifInquilino: c.nifInquilino || '',
       contacto: c.contacto || '',
+      genero: c.genero || '',
+      nacionalidade: c.nacionalidade || 'Portuguesa',
+      tipoDocumento: c.tipoDocumento || '',
+      numDocumento: c.numDocumento || '',
+      validadeDocumento: c.validadeDocumento ? c.validadeDocumento.slice(0, 10) : '',
+      estadoCivil: c.estadoCivil || '',
+      naturalidade: c.naturalidade || '',
+      moradaInquilino: c.moradaInquilino || '',
+      usarMoradaImovel: c.usarMoradaImovel,
+      localAssinatura: c.localAssinatura || '',
+      dataAssinatura: c.dataAssinatura ? c.dataAssinatura.slice(0, 10) : new Date().toISOString().slice(0, 10),
       nomeFiador: c.nomeFiador || '',
       nifFiador: c.nifFiador || '',
       contactoFiador: c.contactoFiador || '',
@@ -373,6 +429,7 @@ export default function ContratosPage() {
                   {canEdit && (
                     <Td>
                       <div className="flex gap-2 text-[12px]">
+                        <a href={`/api/contratos/pdf?id=${c.id}`} target="_blank" rel="noopener noreferrer" className="text-[#0C447C] hover:underline">PDF</a>
                         <button className="text-[#0C447C] hover:underline" onClick={() => openEdit(c)}>Editar</button>
                         {c.estado === 'ATIVO' && (
                           <>
@@ -417,6 +474,60 @@ export default function ContratosPage() {
           <div className="grid grid-cols-2 gap-3">
             <Input label="Contacto Inquilino" value={form.contacto} onChange={(e) => setForm({ ...form, contacto: e.target.value })} />
             <Input label="Valor Renda (EUR)" type="number" step="0.01" value={form.valorRenda} onChange={(e) => setForm({ ...form, valorRenda: e.target.value })} />
+          </div>
+
+          {/* Identificacao do Inquilino */}
+          <div className="pt-2 border-t border-gray-200">
+            <h4 className="text-sm font-semibold mb-3" style={{ color: '#0D1B1A' }}>Identificacao do Inquilino</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="Genero"
+                options={GENERO_OPTIONS}
+                value={form.genero}
+                onChange={(e) => setForm({ ...form, genero: e.target.value })}
+              />
+              <Input label="Nacionalidade" value={form.nacionalidade} onChange={(e) => setForm({ ...form, nacionalidade: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Select
+                label="Tipo de Documento"
+                options={TIPO_DOCUMENTO_OPTIONS}
+                value={form.tipoDocumento}
+                onChange={(e) => setForm({ ...form, tipoDocumento: e.target.value })}
+              />
+              <Input label="Numero do Documento" value={form.numDocumento} onChange={(e) => setForm({ ...form, numDocumento: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Input label="Validade do Documento" type="date" value={form.validadeDocumento} onChange={(e) => setForm({ ...form, validadeDocumento: e.target.value })} />
+              <Select
+                label="Estado Civil"
+                options={ESTADO_CIVIL_OPTIONS}
+                value={form.estadoCivil}
+                onChange={(e) => setForm({ ...form, estadoCivil: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Input label="Naturalidade" value={form.naturalidade} onChange={(e) => setForm({ ...form, naturalidade: e.target.value })} />
+            </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>Morada do Inquilino</label>
+              <textarea
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                style={{ borderColor: '#D1D5DB' }}
+                rows={2}
+                value={form.moradaInquilino}
+                onChange={(e) => setForm({ ...form, moradaInquilino: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <input
+                type="checkbox"
+                checked={form.usarMoradaImovel}
+                onChange={(e) => setForm({ ...form, usarMoradaImovel: e.target.checked })}
+                className="w-4 h-4 rounded border-gray-300 accent-[#1D9E75]"
+              />
+              <span className="text-sm">Usar morada do imovel durante vigencia</span>
+            </div>
           </div>
 
           {/* Fiador */}
@@ -470,6 +581,15 @@ export default function ContratosPage() {
               value={form.notas}
               onChange={(e) => setForm({ ...form, notas: e.target.value })}
             />
+          </div>
+
+          {/* Assinatura */}
+          <div className="pt-2 border-t border-gray-200">
+            <h4 className="text-sm font-semibold mb-3" style={{ color: '#0D1B1A' }}>Assinatura</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Local de Assinatura" value={form.localAssinatura || selectedImovel?.localizacao || ''} onChange={(e) => setForm({ ...form, localAssinatura: e.target.value })} />
+              <Input label="Data de Assinatura" type="date" value={form.dataAssinatura} onChange={(e) => setForm({ ...form, dataAssinatura: e.target.value })} />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     requirePermission(session.user.role as Role, 'imoveis:editar')
 
     const body = await req.json()
-    const { fracaoId, imovelId, nomeInquilino, nifInquilino, contacto, nomeFiador, nifFiador, contactoFiador, parentesco, valorRenda, dataInicio, dataFim, renovacaoAuto, periodoRenovacao, caucao, notas } = body
+    const { fracaoId, imovelId, nomeInquilino, nifInquilino, contacto, genero, nacionalidade, tipoDocumento, numDocumento, validadeDocumento, estadoCivil, naturalidade, moradaInquilino, usarMoradaImovel, localAssinatura, dataAssinatura, nomeFiador, nifFiador, contactoFiador, parentesco, valorRenda, dataInicio, dataFim, renovacaoAuto, periodoRenovacao, caucao, notas } = body
 
     if (!fracaoId || !imovelId || !nomeInquilino || !valorRenda || !dataInicio) {
       return Response.json({ error: 'Campos obrigatorios em falta' }, { status: 400 })
@@ -61,6 +61,17 @@ export async function POST(req: NextRequest) {
         nomeInquilino,
         nifInquilino: nifInquilino || null,
         contacto: contacto || null,
+        genero: genero || null,
+        nacionalidade: nacionalidade || null,
+        tipoDocumento: tipoDocumento || null,
+        numDocumento: numDocumento || null,
+        validadeDocumento: validadeDocumento ? new Date(validadeDocumento) : null,
+        estadoCivil: estadoCivil || null,
+        naturalidade: naturalidade || null,
+        moradaInquilino: moradaInquilino || null,
+        usarMoradaImovel: usarMoradaImovel ?? true,
+        localAssinatura: localAssinatura || null,
+        dataAssinatura: dataAssinatura ? new Date(dataAssinatura) : null,
         nomeFiador: nomeFiador || null,
         nifFiador: nifFiador || null,
         contactoFiador: contactoFiador || null,
@@ -102,6 +113,17 @@ export async function PUT(req: NextRequest) {
     if (data.nifFiador !== undefined) updateData.nifFiador = data.nifFiador || null
     if (data.contactoFiador !== undefined) updateData.contactoFiador = data.contactoFiador || null
     if (data.parentesco !== undefined) updateData.parentesco = data.parentesco || null
+    if (data.genero !== undefined) updateData.genero = data.genero || null
+    if (data.nacionalidade !== undefined) updateData.nacionalidade = data.nacionalidade || null
+    if (data.tipoDocumento !== undefined) updateData.tipoDocumento = data.tipoDocumento || null
+    if (data.numDocumento !== undefined) updateData.numDocumento = data.numDocumento || null
+    if (data.validadeDocumento !== undefined) updateData.validadeDocumento = data.validadeDocumento ? new Date(data.validadeDocumento) : null
+    if (data.estadoCivil !== undefined) updateData.estadoCivil = data.estadoCivil || null
+    if (data.naturalidade !== undefined) updateData.naturalidade = data.naturalidade || null
+    if (data.moradaInquilino !== undefined) updateData.moradaInquilino = data.moradaInquilino || null
+    if (data.usarMoradaImovel !== undefined) updateData.usarMoradaImovel = data.usarMoradaImovel
+    if (data.localAssinatura !== undefined) updateData.localAssinatura = data.localAssinatura || null
+    if (data.dataAssinatura !== undefined) updateData.dataAssinatura = data.dataAssinatura ? new Date(data.dataAssinatura) : null
     if (data.valorRenda !== undefined) updateData.valorRenda = Number(data.valorRenda)
     if (data.dataInicio !== undefined) updateData.dataInicio = new Date(data.dataInicio)
     if (data.dataFim !== undefined) updateData.dataFim = data.dataFim ? new Date(data.dataFim) : null

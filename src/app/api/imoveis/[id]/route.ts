@@ -30,6 +30,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.estado !== undefined) data.estado = body.estado
     if (body.valorPatrimonial !== undefined) data.valorPatrimonial = body.valorPatrimonial ? Number(body.valorPatrimonial) : null
     if (body.areaMt2 !== undefined) data.areaMt2 = body.areaMt2 ? Number(body.areaMt2) : null
+    // Contrato fields (optional strings -> null if empty)
+    const optionalStrings = ['fracaoAutonoma', 'andar', 'freguesia', 'concelho', 'artigoMatricial', 'descricaoRP', 'licencaUtilizacao', 'dataLicenca', 'entidadeLicenca', 'nomeProprietario1', 'ccProprietario1', 'nomeProprietario2', 'nifProprietario2', 'ccProprietario2', 'regimeCasamento', 'moradaProprietarios', 'equipamentos'] as const
+    for (const key of optionalStrings) {
+      if (body[key] !== undefined) data[key] = body[key] || null
+    }
+    // Required string with default
+    if (body.modeloDespesas !== undefined) data.modeloDespesas = body.modeloDespesas
+    // Boolean fields
+    if (body.incluirSubtracaoCaucao !== undefined) data.incluirSubtracaoCaucao = body.incluirSubtracaoCaucao
+    if (body.incluirProprietarios !== undefined) data.incluirProprietarios = body.incluirProprietarios
+    // DateTime field
+    if (body.dataContratoArrendamento !== undefined) data.dataContratoArrendamento = body.dataContratoArrendamento ? new Date(body.dataContratoArrendamento) : null
 
     const updated = await prisma.imovel.update({ where: { id }, data })
     return Response.json({ data: updated })
