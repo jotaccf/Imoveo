@@ -116,11 +116,29 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 
   ALERT_EMAIL=$(prompt "Email para notificacoes de falha (Enter para saltar):")
 
+  # IP fixo
+  CURRENT_IP=$(hostname -I | awk '{print $1}')
+  CURRENT_MASK=$(ip -o -f inet addr show | grep "$CURRENT_IP" | awk '{print $4}' | head -1)
+  CURRENT_GW=$(ip route | grep default | awk '{print $3}' | head -1)
+  STATIC_IP=""
+
+  if prompt_confirm "Configurar IP fixo? (actual: $CURRENT_IP)"; then
+    STATIC_IP=$(prompt "Qual o IP fixo? [Enter = $CURRENT_IP]")
+    STATIC_IP=${STATIC_IP:-$CURRENT_IP}
+    STATIC_MASK=$(prompt "Mascara CIDR (ex: /20)? [Enter = ${CURRENT_MASK#*/}]")
+    STATIC_MASK=${STATIC_MASK:-${CURRENT_MASK#*/}}
+    STATIC_GW=$(prompt "Gateway? [Enter = $CURRENT_GW]")
+    STATIC_GW=${STATIC_GW:-$CURRENT_GW}
+  fi
+
   echo ""
   log "Configuracao:"
   log "  Dominio:    $DOMAIN"
   log "  Porta:      $APP_PORT"
   log "  Email:      ${ALERT_EMAIL:-'(nenhum)'}"
+  if [[ -n "$STATIC_IP" ]]; then
+    log "  IP fixo:    $STATIC_IP/$STATIC_MASK via $STATIC_GW"
+  fi
   echo ""
 
   if ! prompt_confirm "Continuar com a instalacao?"; then
@@ -132,6 +150,9 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   sudo mkdir -p "$APP_DIR"
   sudo tee "$CONFIG_FILE" > /dev/null << CFGEOF
 DOMAIN="$DOMAIN"
+STATIC_IP="$STATIC_IP"
+STATIC_MASK="${STATIC_MASK:-}"
+STATIC_GW="${STATIC_GW:-}"
 APP_PORT="$APP_PORT"
 DB_PASSWORD="$DB_PASSWORD"
 NEXTAUTH_SECRET="$NEXTAUTH_SECRET"
@@ -147,6 +168,46 @@ fi
 log "Passo 1 — Actualizar sistema..."
 sudo apt-get update -qq && sudo apt-get upgrade -y -qq
 ok "Sistema actualizado"
+
+# ============================================================
+#  IP FIXO (se configurado)
+# ============================================================
+
+if [[ -n "${STATIC_IP:-}" ]]; then
+  NETPLAN_FILE="/etc/netplan/01-static.yaml"
+  if [[ -f "$NETPLAN_FILE" ]] && grep -q "$STATIC_IP" "$NETPLAN_FILE" 2>/dev/null; then
+    skip "IP fixo $STATIC_IP ja configurado"
+  else
+    log "A configurar IP fixo: $STATIC_IP/$STATIC_MASK..."
+    # Detectar interface de rede
+    NET_IFACE=$(ip route | grep default | awk '{print $5}' | head -1)
+    NET_IFACE=${NET_IFACE:-eth0}
+
+    sudo tee "$NETPLAN_FILE" > /dev/null << NETPLANEOF
+network:
+  version: 2
+  ethernets:
+    ${NET_IFACE}:
+      dhcp4: no
+      addresses:
+        - ${STATIC_IP}/${STATIC_MASK}
+      routes:
+        - to: default
+          via: ${STATIC_GW}
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 1.1.1.1
+NETPLANEOF
+
+    sudo chmod 600 "$NETPLAN_FILE"
+    # Remover configuracao DHCP antiga se existir
+    sudo rm -f /etc/netplan/50-cloud-init.yaml 2>/dev/null
+    sudo netplan apply 2>/dev/null
+    ok "IP fixo configurado: $STATIC_IP"
+    warn "Se perder a ligacao SSH, reconecte ao IP $STATIC_IP"
+  fi
+fi
 
 # ============================================================
 #  PASSO 2 — INSTALAR DEPENDENCIAS
