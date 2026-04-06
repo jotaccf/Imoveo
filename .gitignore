@@ -11,3 +11,4 @@ dist/
 src/generated/
 tsconfig.tsbuildinfo
 next-env.d.ts
+backups/
