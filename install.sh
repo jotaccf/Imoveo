@@ -29,23 +29,33 @@ ask()   { echo -e "${BLUE}[?]${NC} $1"; }
 ok()    { echo -e "${GREEN}  ✓${NC} $1"; }
 skip()  { echo -e "${YELLOW}  →${NC} $1 (ja configurado)"; }
 
-# Ler do terminal
+# Detectar terminal disponivel
+if [[ -t 0 ]]; then
+  TTY_INPUT="/dev/stdin"
+elif [[ -e /dev/tty ]]; then
+  TTY_INPUT="/dev/tty"
+else
+  error "Nao foi possivel detectar terminal para input interactivo."
+  error "Use: curl -fsSL URL -o install.sh && bash install.sh"
+  exit 1
+fi
+
 prompt() {
   ask "$1"
-  read -r REPLY </dev/tty
+  read -r REPLY < "$TTY_INPUT"
   echo "$REPLY"
 }
 
 prompt_secret() {
   ask "$1"
-  read -rs REPLY </dev/tty
-  echo "" >/dev/tty
+  read -rs REPLY < "$TTY_INPUT"
+  echo "" > "$TTY_INPUT" 2>/dev/null || true
   echo "$REPLY"
 }
 
 prompt_confirm() {
   ask "$1 (s/n)"
-  read -r REPLY </dev/tty
+  read -r REPLY < "$TTY_INPUT"
   [[ "$REPLY" == "s" || "$REPLY" == "S" || "$REPLY" == "y" || "$REPLY" == "Y" ]]
 }
 
