@@ -61,6 +61,10 @@
 - [x] Fix: assinaturas sempre na mesma pagina do PDF
 - [x] Fix: bcryptjs incluido no standalone output
 
+## v1.2.1 — Fixes bare metal (2026-04-07)
+- [x] sudo chmod no update para permissoes de estaticos Nginx
+- [x] npm ci --loglevel=error (sem warnings durante update)
+
 ## v1.x.x — Optimizacao Docker e DevOps 📋 Planned
 - [ ] Criar .dockerignore (node_modules, .git, electron, .env — reduz contexto em 500MB+)
 - [ ] Remover node_modules completo do runner (standalone ja inclui deps, copiar so Prisma CLI)
@@ -77,7 +81,7 @@
 - [ ] Sudoers mais restritivo (scoped por comando)
 - [ ] Seguranca: pinned base image digest (node:20-alpine@sha256:...)
 
-## v1.2.0 — Electron Desktop 📋 Planned
+## v1.3.0 — Electron Desktop 📋 Planned
 - [ ] Electron wrapper com PostgreSQL embutido
 - [ ] Instalador Windows (.exe NSIS)
 - [ ] Instalador macOS (.dmg)
