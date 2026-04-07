@@ -2,10 +2,29 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import type { Role } from '@/lib/permissions'
+
+function CollapsibleSection({ title, subtitle, defaultOpen = false, children }: {
+  title: string; subtitle?: string; defaultOpen?: boolean; children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <Card>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-2 text-left">
+        {open ? <ChevronDown size={16} style={{ color: '#6B7280' }} /> : <ChevronRight size={16} style={{ color: '#6B7280' }} />}
+        <div className="flex-1">
+          <h2 className="text-base font-semibold" style={{ color: '#0D1B1A' }}>{title}</h2>
+          {subtitle && <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{subtitle}</p>}
+        </div>
+      </button>
+      {open && <div className="mt-4">{children}</div>}
+    </Card>
+  )
+}
 
 interface ConfigValues {
   derramaMunicipal: number
@@ -169,14 +188,7 @@ export default function ConfiguracoesPage() {
   return (
     <div className="space-y-4">
       {/* Dados da Empresa */}
-      <Card>
-        <h2 className="text-base font-semibold mb-1" style={{ color: '#0D1B1A' }}>
-          Dados da Empresa
-        </h2>
-        <p className="text-[11px] mb-4" style={{ color: '#9CA3AF' }}>
-          Utilizados na geracao de contratos PDF (Primeira Outorgante)
-        </p>
-
+      <CollapsibleSection title="Dados da Empresa" subtitle="Utilizados na geracao de contratos PDF (Primeira Outorgante)" defaultOpen={false}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Input label="Denominacao social" value={empresa.empresa_nome} onChange={(e) => setEmpresa({ ...empresa, empresa_nome: e.target.value })} placeholder="EXPOENTE HISTORICO - UNIPESSOAL, LDA." />
@@ -201,17 +213,11 @@ export default function ConfiguracoesPage() {
             <span className="text-sm" style={{ color: '#0F6E56' }}>Dados da empresa guardados.</span>
           )}
         </div>
-      </Card>
+      </CollapsibleSection>
 
       {/* Tailscale VPN */}
       {tsStatus && (
-        <Card>
-          <h2 className="text-base font-semibold mb-1" style={{ color: '#0D1B1A' }}>
-            Tailscale VPN
-          </h2>
-          <p className="text-[11px] mb-4" style={{ color: '#9CA3AF' }}>
-            Acesso remoto seguro ao servidor via Tailscale
-          </p>
+        <CollapsibleSection title="Tailscale VPN" subtitle="Acesso remoto seguro ao servidor via Tailscale" defaultOpen={false}>
 
           {/* Estado */}
           <div className="flex items-center gap-3 mb-4">
@@ -260,15 +266,11 @@ export default function ConfiguracoesPage() {
               {tsMessage}
             </div>
           )}
-        </Card>
+        </CollapsibleSection>
       )}
 
       {/* Configuracoes Fiscais */}
-      <Card>
-        <h2 className="text-base font-semibold mb-4" style={{ color: '#0D1B1A' }}>
-          Configuracoes Fiscais
-        </h2>
-
+      <CollapsibleSection title="Configuracoes Fiscais" defaultOpen={true}>
         <div className="space-y-5">
           {fields.map((field) => (
             <div key={field.key}>
@@ -317,7 +319,7 @@ export default function ConfiguracoesPage() {
             </span>
           )}
         </div>
-      </Card>
+      </CollapsibleSection>
     </div>
   )
 }

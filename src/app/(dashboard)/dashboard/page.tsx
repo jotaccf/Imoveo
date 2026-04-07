@@ -28,6 +28,7 @@ export default function DashboardPage() {
 
   const [analise, setAnalise] = useState<ApiData>(null)
   const [pendentes, setPendentes] = useState<ApiData[]>([])
+  const [pendentesTotal, setPendentesTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [vista, setVista] = useState<'detalhada' | 'simples'>('detalhada')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -60,7 +61,11 @@ export default function DashboardPage() {
     promises.push(
       fetch(`/api/faturas/pendentes?ano=${ano}`)
         .then((r) => r.json())
-        .then((j) => { if (j.data) setPendentes(j.data) })
+        .then((j) => {
+          if (j.data) setPendentes(j.data)
+          if (j.contagem) setPendentesTotal(j.contagem.total)
+          else if (j.pagination) setPendentesTotal(j.pagination.total)
+        })
         .catch(() => {})
     )
 
@@ -78,7 +83,7 @@ export default function DashboardPage() {
           <Link href="/pendentes">
             <Card className="hover:border-brand-primary transition-colors cursor-pointer">
               <div className="text-[11px] font-medium text-[#6B7280] mb-1">Faturas pendentes</div>
-              <div className="text-xl font-medium" style={{ color: '#633806' }}>{pendentes.length}</div>
+              <div className="text-xl font-medium" style={{ color: '#633806' }}>{pendentesTotal}</div>
               <div className="text-[11px] text-[#9CA3AF] mt-1">Por classificar</div>
             </Card>
           </Link>
@@ -161,7 +166,7 @@ export default function DashboardPage() {
           <KpiCard label="Receita total" value={formatCurrency(g.receitaTotal || 0)} color="green" />
           <KpiCard label="Gastos totais" value={formatCurrency(g.custoTotal || 0)} color="red" />
           <KpiCard label="Resultado liquido" value={formatCurrency(g.resultadoLiquido || 0)} color={(g.resultadoLiquido || 0) >= 0 ? 'green' : 'red'} />
-          <KpiCard label="Pendentes" value={String(pendentes.length)} color="amber" sub="faturas por classificar" />
+          <KpiCard label="Pendentes" value={String(pendentesTotal)} color="amber" sub="faturas por classificar" />
         </div>
 
         <Card>
@@ -223,7 +228,7 @@ export default function DashboardPage() {
         <KpiCard label="Gastos mensais" value={formatCurrency((g.custoTotal || 0) / Math.max(new Date().getMonth() + 1, 1))} color="red" sub={`Total: ${formatCurrency(g.custoTotal || 0)}`} />
         <KpiCard label="Resultado liquido" value={formatCurrency(g.resultadoLiquido || 0)} color={(g.resultadoLiquido || 0) >= 0 ? 'green' : 'red'} sub={`Margem: ${(g.margemBrutaPct || 0).toFixed(1)}%`} />
         <KpiCard label="Taxa ocupacao" value={`${taxaOcupacao}%`} color={taxaOcupacao > 80 ? 'green' : taxaOcupacao > 50 ? 'amber' : 'red'} sub={`${totalMesesOcupados}/${totalMesesPossiveis} meses·quarto`} />
-        <KpiCard label="Pendentes" value={String(pendentes.length)} color={pendentes.length > 0 ? 'amber' : 'green'} sub="faturas por classificar" />
+        <KpiCard label="Pendentes" value={String(pendentesTotal)} color={pendentesTotal > 0 ? 'amber' : 'green'} sub="faturas por classificar" />
         <KpiCard label="IRC estimado" value={formatCurrency(irc.ircTotal || 0)} color="amber" sub={`Taxa: ${(irc.taxaEfetiva || 0).toFixed(1)}%`} />
       </div>
 
@@ -279,7 +284,7 @@ export default function DashboardPage() {
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[11px] font-medium text-[#6B7280] uppercase tracking-wide">Faturas por classificar</h3>
-            <Badge variant={pendentes.length > 0 ? 'amber' : 'green'}>{pendentes.length}</Badge>
+            <Badge variant={pendentesTotal > 0 ? 'amber' : 'green'}>{pendentesTotal}</Badge>
           </div>
           {pendentesUrgentes.length > 0 ? (
             <div className="space-y-2">
@@ -289,15 +294,15 @@ export default function DashboardPage() {
                   <span className="font-medium ml-2">{formatCurrency(Number(p.totalComIva))}</span>
                 </div>
               ))}
-              {pendentes.length > 5 && (
-                <div className="text-[11px] text-gray-400">+{pendentes.length - 5} mais</div>
+              {pendentesTotal > 5 && (
+                <div className="text-[11px] text-gray-400">+{pendentesTotal - 5} mais</div>
               )}
             </div>
           ) : (
             <div className="text-[12px] text-gray-400">Tudo classificado</div>
           )}
           <Link href="/pendentes" className="block mt-3 text-[11px] text-brand-primary hover:underline">
-            {pendentes.length > 0 ? 'Classificar agora →' : 'Ver pendentes →'}
+            {pendentesTotal > 0 ? 'Classificar agora →' : 'Ver pendentes →'}
           </Link>
         </Card>
 

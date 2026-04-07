@@ -44,6 +44,23 @@
 - [x] Sudoers expandido para deploy (nginx, mkdir, cp, chown, ln, rm)
 - [x] update.sh auto-configura cron, manutencao e nginx no host
 
+## v1.2.0 — Contratos PDF, Uploads e Tailscale ✅ Released (2026-04-07)
+- [x] Geracao PDF de contrato de subarrendamento (texto legal completo, 12 clausulas)
+- [x] Campos dinamicos: genero, nacionalidade, documento, proprietarios, despesas
+- [x] Formulario imovel com tabs (Geral, Contrato, Proprietarios, Equipamentos)
+- [x] Formulario fracao com detalhes (letra, tipo quarto, casa banho, mobilia)
+- [x] Formulario contrato com identificacao inquilino + assinatura
+- [x] Dados da empresa nas configuracoes (Primeira Outorgante)
+- [x] Upload planta do imovel (PDF/JPG/PNG) com merge no contrato PDF
+- [x] Upload contrato assinado com check verde na tabela
+- [x] Copia local do contrato PDF gerado
+- [x] Tailscale VPN nas configuracoes (auth key + estado)
+- [x] Configuracoes com seccoes colapsaveis
+- [x] Fix: pendentes mostra total real (nao limitado a 50)
+- [x] Fix: psql/pg_dump com path completo (bare metal compativel)
+- [x] Fix: assinaturas sempre na mesma pagina do PDF
+- [x] Fix: bcryptjs incluido no standalone output
+
 ## v1.x.x — Optimizacao Docker e DevOps 📋 Planned
 - [ ] Criar .dockerignore (node_modules, .git, electron, .env — reduz contexto em 500MB+)
 - [ ] Remover node_modules completo do runner (standalone ja inclui deps, copiar so Prisma CLI)
