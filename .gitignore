@@ -12,3 +12,12 @@ src/generated/
 tsconfig.tsbuildinfo
 next-env.d.ts
 backups/
+
+# Claude Code
+.claude/
+CLAUDE.md
+AGENTS.md
+.cursorrules
+.cursorignore
+*.jsonl
+debug.log
