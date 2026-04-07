@@ -1,11 +1,15 @@
 import { auth } from '@/lib/auth'
 import { requirePermission, type Role } from '@/lib/permissions'
 import { writeFileSync, existsSync } from 'fs'
+import { spawn } from 'child_process'
 import { debugLog, debugError } from '@/lib/debug-logger'
 
 const isWindows = process.platform === 'win32'
-// O flag é escrito em /app/shared/ que está mapeado para /opt/imoveo/shared/ no host
-const FLAG_PATH = isWindows ? '' : '/app/shared/UPDATE_REQUESTED'
+
+// Detectar ambiente: Docker (flag) vs Bare Metal (CLI directo)
+const isDocker = existsSync('/.dockerenv') || existsSync('/app/shared')
+const FLAG_PATH = isDocker ? '/app/shared/UPDATE_REQUESTED' : ''
+const IMOVEO_CLI = '/usr/local/bin/imoveo'
 
 export async function POST() {
   try {
@@ -16,24 +20,39 @@ export async function POST() {
     const user = (session.user as { nome?: string })?.nome || 'desconhecido'
     debugLog('update', `Update solicitado por ${user}`)
 
-    if (!FLAG_PATH) {
-      debugLog('update', 'AVISO: a correr em Windows, flag nao criada')
+    if (isWindows) {
       return Response.json({ message: 'Update nao disponivel em Windows' }, { status: 400 })
     }
 
-    // Escrever flag que o cron do host detecta e executa o update.sh
-    writeFileSync(FLAG_PATH, new Date().toISOString())
-    debugLog('update', `Flag criada em ${FLAG_PATH}`)
+    if (isDocker) {
+      // Docker: escrever flag para o watcher no host
+      writeFileSync(FLAG_PATH, new Date().toISOString())
+      debugLog('update', `Flag Docker criada em ${FLAG_PATH}`)
 
-    // Verificar se o watcher cron esta configurado
-    const watcherExists = existsSync('/opt/imoveo/update-watcher.sh')
-    if (!watcherExists) {
-      debugLog('update', 'AVISO: update-watcher.sh nao encontrado — cron pode nao estar configurado')
+      return Response.json({
+        message: 'Actualizacao agendada. A aplicacao ira reiniciar em breve.',
+        mode: 'docker',
+      }, { status: 202 })
     }
 
+    // Bare metal: executar imoveo update em background
+    if (!existsSync(IMOVEO_CLI)) {
+      debugLog('update', 'AVISO: CLI imoveo nao encontrado')
+      return Response.json({ error: 'CLI imoveo nao encontrado em ' + IMOVEO_CLI }, { status: 500 })
+    }
+
+    debugLog('update', 'A executar imoveo update (bare metal)...')
+
+    const child = spawn('sudo', [IMOVEO_CLI, 'update'], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: '/opt/imoveo',
+    })
+    child.unref()
+
     return Response.json({
-      message: 'Actualizacao agendada. A aplicacao ira reiniciar em breve.',
-      watcherConfigured: watcherExists,
+      message: 'Actualizacao iniciada. A pagina entrara em modo de manutencao.',
+      mode: 'baremetal',
     }, { status: 202 })
   } catch (e) {
     debugError('update', e)
