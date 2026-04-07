@@ -52,7 +52,7 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 12,
     marginBottom: 2,
   },
   clauseSubtitle: {
@@ -63,17 +63,19 @@ const s = StyleSheet.create({
   },
   paragraph: {
     textAlign: 'justify',
-    marginBottom: 8,
-    lineHeight: 1.6,
+    marginBottom: 6,
+    lineHeight: 1.5,
     fontSize: 10,
   },
   signatureSection: {
-    marginTop: 40,
+    marginTop: 30,
+    break: 'avoid' as unknown as undefined,
+    minPresenceAhead: 200,
   },
   signatureBlock: {
     alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 20,
+    marginTop: 20,
+    marginBottom: 15,
   },
   signatureLabel: {
     fontSize: 10,
@@ -592,7 +594,7 @@ function ContratoPDF({ contrato: c, empresa: emp }: { contrato: ContratoData; em
         </Text>
 
         {/* ==================== SIGNATURE ==================== */}
-        <View style={s.signatureSection}>
+        <View style={s.signatureSection} wrap={false}>
           <Text style={s.paragraph}>
             Feito em {c.localAssinatura || ''}, aos dias {formatDatePT(c.dataAssinatura)}, em duplicado, ficando um exemplar na posse de cada uma das partes.
           </Text>
