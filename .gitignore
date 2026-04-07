@@ -21,3 +21,8 @@ AGENTS.md
 .cursorignore
 *.jsonl
 debug.log
+memory/
+skills_*.md
+session_log.md
+master_memory.md
+*_learnings.md
