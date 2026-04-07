@@ -9,6 +9,13 @@ const isWindows = process.platform === 'win32'
 const BACKUP_DIR = process.env.BACKUP_DIR || (isWindows ? join(process.cwd(), 'backups') : '/opt/backups/imoveo')
 const DB_URL = process.env.DATABASE_URL || ''
 
+function findBin(name: string): string {
+  const paths = [`/usr/bin/${name}`, `/usr/local/bin/${name}`, `/usr/lib/postgresql/16/bin/${name}`, `/usr/lib/postgresql/17/bin/${name}`]
+  for (const p of paths) { if (existsSync(p)) return p }
+  return name
+}
+const PG_DUMP = isWindows ? 'pg_dump' : findBin('pg_dump')
+
 try { mkdirSync(BACKUP_DIR, { recursive: true }) } catch { /* ignore */ }
 
 export async function GET(req: NextRequest) {
@@ -50,7 +57,7 @@ export async function GET(req: NextRequest) {
         )
       } else {
         execSync(
-          `PGPASSWORD='${password}' pg_dump -h ${host} -p ${port} -U ${user} ${database} > ${filepath}`,
+          `PGPASSWORD='${password}' ${PG_DUMP} -h ${host} -p ${port} -U ${user} ${database} > "${filepath}"`,
           { timeout: 120000 }
         )
       }

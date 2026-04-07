@@ -13,6 +13,15 @@ const DB_URL = process.env.DATABASE_URL || ''
 // Garantir que o directorio existe
 try { mkdirSync(BACKUP_DIR, { recursive: true }) } catch { /* ignore */ }
 
+// Encontrar psql e pg_dump
+function findBin(name: string): string {
+  const paths = [`/usr/bin/${name}`, `/usr/local/bin/${name}`, `/usr/lib/postgresql/16/bin/${name}`, `/usr/lib/postgresql/17/bin/${name}`]
+  for (const p of paths) { if (existsSync(p)) return p }
+  return name
+}
+const PSQL = isWindows ? 'psql' : findBin('psql')
+const PG_DUMP = isWindows ? 'pg_dump' : findBin('pg_dump')
+
 function getBackupList() {
   try {
     const files = readdirSync(BACKUP_DIR)
@@ -53,7 +62,7 @@ function runPgDump(filepath: string): void {
     )
   } else {
     execSync(
-      `PGPASSWORD='${password}' pg_dump -h ${host} -p ${port} -U ${user} ${database} > ${filepath}`,
+      `PGPASSWORD='${password}' ${PG_DUMP} -h ${host} -p ${port} -U ${user} ${database} > "${filepath}"`,
       { timeout: 60000 }
     )
   }
@@ -77,7 +86,7 @@ function runDropSchema(): void {
     )
   } else {
     execSync(
-      `PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database} -c "${dropSQL}"`,
+      `PGPASSWORD='${password}' ${PSQL} -h ${host} -p ${port} -U ${user} ${database} -c "${dropSQL}"`,
       { timeout: 30000 }
     )
   }
@@ -107,9 +116,9 @@ function runPgRestore(filepath: string, isGzip: boolean): void {
     }
   } else {
     if (isGzip) {
-      execSync(`gunzip -c ${filepath} | PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database}`, { timeout: 120000 })
+      execSync(`gunzip -c "${filepath}" | PGPASSWORD='${password}' ${PSQL} -h ${host} -p ${port} -U ${user} ${database}`, { timeout: 120000 })
     } else {
-      execSync(`PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database} < ${filepath}`, { timeout: 120000 })
+      execSync(`PGPASSWORD='${password}' ${PSQL} -h ${host} -p ${port} -U ${user} ${database} < "${filepath}"`, { timeout: 120000 })
     }
   }
 }

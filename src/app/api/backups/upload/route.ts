@@ -1,11 +1,23 @@
 import { auth } from '@/lib/auth'
 import { requirePermission, type Role } from '@/lib/permissions'
-import { writeFileSync } from 'fs'
+import { writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { execSync } from 'child_process'
+import { debugLog, debugError } from '@/lib/debug-logger'
 
 const isWindows = process.platform === 'win32'
 const DB_URL = process.env.DATABASE_URL || ''
+
+// Encontrar psql — pode estar em diferentes paths
+function findPsql(): string {
+  const paths = ['/usr/bin/psql', '/usr/local/bin/psql', '/usr/lib/postgresql/16/bin/psql', '/usr/lib/postgresql/17/bin/psql']
+  for (const p of paths) {
+    if (existsSync(p)) return p
+  }
+  return 'psql' // fallback para PATH
+}
+
+const PSQL = isWindows ? 'psql' : findPsql()
 
 function runDropSchema(): void {
   const url = new URL(DB_URL)
@@ -17,6 +29,8 @@ function runDropSchema(): void {
 
   const dropSQL = "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;"
 
+  debugLog('backup/upload', `DROP SCHEMA — psql: ${PSQL}, host: ${host}, port: ${port}, db: ${database}`)
+
   if (isWindows) {
     const containerName = 'imoveo-postgres-1'
     execSync(
@@ -25,10 +39,11 @@ function runDropSchema(): void {
     )
   } else {
     execSync(
-      `PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database} -c "${dropSQL}"`,
+      `PGPASSWORD='${password}' ${PSQL} -h ${host} -p ${port} -U ${user} ${database} -c "${dropSQL}"`,
       { timeout: 30000 }
     )
   }
+  debugLog('backup/upload', 'DROP SCHEMA concluido')
 }
 
 export async function POST(req: Request) {
@@ -62,6 +77,7 @@ export async function POST(req: Request) {
     const isGzip = filename.endsWith('.gz')
 
     // Limpar schema antes de importar para evitar conflitos
+    debugLog('backup/upload', `A importar ${filename} (${buffer.length} bytes, gzip: ${isGzip})`)
     runDropSchema()
 
     if (isWindows) {
@@ -75,17 +91,18 @@ export async function POST(req: Request) {
       }
     } else {
       if (isGzip) {
-        execSync(`gunzip -c ${tmpPath} | PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database}`, { timeout: 120000 })
+        execSync(`gunzip -c "${tmpPath}" | PGPASSWORD='${password}' ${PSQL} -h ${host} -p ${port} -U ${user} ${database}`, { timeout: 120000 })
       } else {
-        execSync(`PGPASSWORD='${password}' psql -h ${host} -p ${port} -U ${user} ${database} < ${tmpPath}`, { timeout: 120000 })
+        execSync(`PGPASSWORD='${password}' ${PSQL} -h ${host} -p ${port} -U ${user} ${database} < "${tmpPath}"`, { timeout: 120000 })
       }
     }
 
-    try { if (!isWindows) execSync(`rm -f ${tmpPath}`) } catch { /* ignore */ }
+    try { if (!isWindows) execSync(`rm -f "${tmpPath}"`) } catch { /* ignore */ }
 
+    debugLog('backup/upload', `Backup importado: ${filename}`)
     return Response.json({ message: `Backup importado com sucesso: ${filename}` })
   } catch (e) {
-    console.error('[backup/upload] Error:', e)
+    debugError('backup/upload', e)
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
     return Response.json({ error: 'Erro ao importar backup', details: String(e) }, { status: 500 })
   }
