@@ -44,6 +44,22 @@
 - [x] Sudoers expandido para deploy (nginx, mkdir, cp, chown, ln, rm)
 - [x] update.sh auto-configura cron, manutencao e nginx no host
 
+## v1.x.x — Optimizacao Docker e DevOps 📋 Planned
+- [ ] Criar .dockerignore (node_modules, .git, electron, .env — reduz contexto em 500MB+)
+- [ ] Remover node_modules completo do runner (standalone ja inclui deps, copiar so Prisma CLI)
+- [ ] Remover --no-cache do update.sh (usar cache Docker, rebuild so da app)
+- [ ] Cache Prisma generate separado (COPY prisma antes do COPY . .)
+- [ ] BuildKit com --mount=type=cache para npm ci
+- [ ] flock nos scripts update para prevenir execucoes concorrentes
+- [ ] Abort update se backup falhar
+- [ ] git diff para skip inteligente (so codigo = so build, nada mudou = exit)
+- [ ] Polling em vez de sleep 30s no update.sh
+- [ ] Log rotation para update.log (/etc/logrotate.d/imoveo)
+- [ ] Remover update.sh e update-watcher.sh da imagem Docker (scripts do host)
+- [ ] Volume shared como read-only onde possivel
+- [ ] Sudoers mais restritivo (scoped por comando)
+- [ ] Seguranca: pinned base image digest (node:20-alpine@sha256:...)
+
 ## v1.2.0 — Electron Desktop 📋 Planned
 - [ ] Electron wrapper com PostgreSQL embutido
 - [ ] Instalador Windows (.exe NSIS)

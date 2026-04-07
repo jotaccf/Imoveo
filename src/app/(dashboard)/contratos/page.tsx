@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import { CheckCircle, Upload, FileText, Download } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -56,6 +57,8 @@ interface Contrato {
   comunicadoAT: boolean
   dataComunicacaoAT: string | null
   estado: string
+  contratoPdfPath: string | null
+  contratoAssinadoPath: string | null
   fracao: Fracao
   imovel: ImovelRef
 }
@@ -164,6 +167,9 @@ export default function ContratosPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [uploadingAssinadoId, setUploadingAssinadoId] = useState<string | null>(null)
+  const assinadoInputRef = useRef<HTMLInputElement>(null)
+  const assinadoTargetId = useRef<string | null>(null)
 
   const loadContratos = useCallback(() => {
     const params = new URLSearchParams()
@@ -318,6 +324,23 @@ export default function ContratosPage() {
     loadContratos()
   }
 
+  async function handleUploadAssinado(contratoId: string, file: File) {
+    setUploadingAssinadoId(contratoId)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/contratos/${contratoId}/assinado`, { method: 'POST', body: fd })
+      if (res.ok) loadContratos()
+    } catch { /* */ }
+    finally { setUploadingAssinadoId(null) }
+  }
+
+  async function handleDeleteAssinado(contratoId: string) {
+    if (!confirm('Remover contrato assinado?')) return
+    await fetch(`/api/contratos/${contratoId}/assinado`, { method: 'DELETE' })
+    loadContratos()
+  }
+
   const selectedImovel = imoveis.find((im) => im.id === form.imovelId)
   // Ao criar, só mostrar fracoes sem contrato ativo. Ao editar, incluir a fracao atual.
   const fracoesComContratoAtivo = new Set(
@@ -364,13 +387,14 @@ export default function ContratosPage() {
               <Th>Fim</Th>
               <Th>Renovacao</Th>
               <Th>AT</Th>
+              <Th>Assinado</Th>
               <Th>Estado</Th>
               {canEdit && <Th>Acoes</Th>}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><Td colSpan={canEdit ? 11 : 10}><span className="text-gray-400">Nenhum contrato encontrado</span></Td></tr>
+              <tr><Td colSpan={canEdit ? 12 : 11}><span className="text-gray-400">Nenhum contrato encontrado</span></Td></tr>
             )}
             {filtered.map((c) => {
               const dias = diasAteExpiracao(c.dataFim)
@@ -425,15 +449,57 @@ export default function ContratosPage() {
                       </span>
                     )}
                   </Td>
+                  <Td>
+                    {c.contratoAssinadoPath ? (
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle size={16} className="text-brand-primary" />
+                        <a
+                          href={`/api/contratos/${c.id}/assinado`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-[#0C447C] hover:underline"
+                          title="Ver contrato assinado"
+                        >
+                          <Download size={14} />
+                        </a>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleDeleteAssinado(c.id)}
+                            className="text-[11px] text-[#A32D2D] hover:underline"
+                            title="Remover assinado"
+                          >
+                            x
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-gray-400">-</span>
+                    )}
+                  </Td>
                   <Td><Badge variant={ESTADO_BADGE[c.estado] || 'gray'}>{c.estado}</Badge></Td>
                   {canEdit && (
                     <Td>
                       <div className="flex gap-2 text-[12px]">
                         <a href={`/api/contratos/pdf?id=${c.id}`} target="_blank" rel="noopener noreferrer" className="text-[#0C447C] hover:underline">PDF</a>
+                        {c.contratoPdfPath && (
+                          <a href={`/api/contratos/${c.id}/assinado`} target="_blank" rel="noopener noreferrer" className="text-[#0C447C] hover:underline" title="Descarregar PDF guardado">
+                            <FileText size={14} className="inline" />
+                          </a>
+                        )}
+                        <button
+                          className="text-[#0C447C] hover:underline"
+                          onClick={() => {
+                            assinadoTargetId.current = c.id
+                            assinadoInputRef.current?.click()
+                          }}
+                          disabled={uploadingAssinadoId === c.id}
+                        >
+                          {uploadingAssinadoId === c.id ? 'A carregar...' : c.contratoAssinadoPath ? 'Reenviar Assinado' : 'Upload Assinado'}
+                        </button>
                         <button className="text-[#0C447C] hover:underline" onClick={() => openEdit(c)}>Editar</button>
                         {c.estado === 'ATIVO' && (
                           <>
-                            <button className="text-[#1D9E75] hover:underline" onClick={() => handleRenovar(c)}>Renovar</button>
+                            <button className="text-brand-primary hover:underline" onClick={() => handleRenovar(c)}>Renovar</button>
                             <button className="text-[#633806] hover:underline" onClick={() => handleTerminar(c.id)}>Terminar</button>
                           </>
                         )}
@@ -447,6 +513,19 @@ export default function ContratosPage() {
           </tbody>
         </Table>
       </Card>
+
+      {/* Hidden file input para upload contrato assinado */}
+      <input
+        ref={assinadoInputRef}
+        type="file"
+        accept=".pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f && assinadoTargetId.current) handleUploadAssinado(assinadoTargetId.current, f)
+          e.target.value = ''
+        }}
+      />
 
       {/* Modal Criar/Editar */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Editar Contrato' : 'Novo Contrato'}>

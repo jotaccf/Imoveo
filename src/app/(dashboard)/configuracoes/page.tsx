@@ -58,6 +58,15 @@ export default function ConfiguracoesPage() {
   const [empresaSaving, setEmpresaSaving] = useState(false)
   const [empresaSuccess, setEmpresaSuccess] = useState(false)
 
+  // Tailscale
+  const [tsStatus, setTsStatus] = useState<{
+    installed: boolean; connected?: boolean; status: string;
+    ip?: string; hostname?: string; version?: string
+  } | null>(null)
+  const [tsAuthKey, setTsAuthKey] = useState('')
+  const [tsConnecting, setTsConnecting] = useState(false)
+  const [tsMessage, setTsMessage] = useState<string | null>(null)
+
   useEffect(() => {
     fetch('/api/configuracoes')
       .then((r) => r.json())
@@ -78,11 +87,48 @@ export default function ConfiguracoesPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    fetch('/api/admin/tailscale')
+      .then((r) => r.json())
+      .then((j) => { if (j.data) setTsStatus(j.data) })
+      .catch(() => {})
+  }, [])
+
   if (role !== 'ADMIN') {
     return <div className="text-sm text-gray-400">Acesso restrito a administradores.</div>
   }
 
   if (loading) return <div className="text-sm text-gray-400">A carregar...</div>
+
+  async function handleTsConnect() {
+    if (!tsAuthKey) return
+    setTsConnecting(true)
+    setTsMessage(null)
+    try {
+      const res = await fetch('/api/admin/tailscale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authKey: tsAuthKey }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        setTsMessage(`Conectado! IP: ${j.ip}`)
+        setTsAuthKey('')
+        // Refresh status
+        fetch('/api/admin/tailscale').then(r => r.json()).then(j => { if (j.data) setTsStatus(j.data) }).catch(() => {})
+      } else {
+        setTsMessage(`Erro: ${j.error}`)
+      }
+    } catch (e) { setTsMessage(`Erro: ${e}`) }
+    finally { setTsConnecting(false) }
+  }
+
+  async function handleTsDisconnect() {
+    if (!confirm('Desconectar Tailscale?')) return
+    await fetch('/api/admin/tailscale', { method: 'DELETE' }).catch(() => {})
+    setTsStatus({ installed: true, connected: false, status: 'Desconectado' })
+    setTsMessage(null)
+  }
 
   async function handleSaveEmpresa() {
     setEmpresaSaving(true)
@@ -156,6 +202,66 @@ export default function ConfiguracoesPage() {
           )}
         </div>
       </Card>
+
+      {/* Tailscale VPN */}
+      {tsStatus && (
+        <Card>
+          <h2 className="text-base font-semibold mb-1" style={{ color: '#0D1B1A' }}>
+            Tailscale VPN
+          </h2>
+          <p className="text-[11px] mb-4" style={{ color: '#9CA3AF' }}>
+            Acesso remoto seguro ao servidor via Tailscale
+          </p>
+
+          {/* Estado */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tsStatus.connected ? '#1D9E75' : '#A32D2D' }} />
+            <span className="text-sm font-medium" style={{ color: tsStatus.connected ? '#0F6E56' : '#A32D2D' }}>
+              {tsStatus.status}
+            </span>
+            {tsStatus.ip && <span className="text-[12px]" style={{ color: '#6B7280' }}>IP: {tsStatus.ip}</span>}
+            {tsStatus.hostname && <span className="text-[12px]" style={{ color: '#6B7280' }}>Host: {tsStatus.hostname}</span>}
+            {tsStatus.version && <span className="text-[12px]" style={{ color: '#9CA3AF' }}>v{tsStatus.version}</span>}
+          </div>
+
+          {!tsStatus.installed ? (
+            <div className="text-[12px] px-3 py-2 rounded" style={{ backgroundColor: '#FAEEDA', color: '#633806' }}>
+              Tailscale nao instalado. Execute no servidor: <code className="font-mono">curl -fsSL https://tailscale.com/install.sh | sh</code>
+            </div>
+          ) : !tsStatus.connected ? (
+            <div className="space-y-3">
+              <div className="text-[12px]" style={{ color: '#6B7280' }}>
+                1. Aceda a <a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#0C447C' }}>login.tailscale.com/admin/settings/keys</a><br />
+                2. Gere um auth key (single-use)<br />
+                3. Cole abaixo e clique Conectar
+              </div>
+              <div className="flex gap-2 max-w-lg">
+                <Input
+                  placeholder="tskey-auth-..."
+                  value={tsAuthKey}
+                  onChange={(e) => setTsAuthKey(e.target.value)}
+                />
+                <Button onClick={handleTsConnect} disabled={tsConnecting || !tsAuthKey}>
+                  {tsConnecting ? 'A conectar...' : 'Conectar'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="secondary" onClick={handleTsDisconnect}>
+              Desconectar
+            </Button>
+          )}
+
+          {tsMessage && (
+            <div className="mt-3 text-[12px] px-3 py-2 rounded" style={{
+              backgroundColor: tsMessage.startsWith('Conectado') ? '#E1F5EE' : '#FCEBEB',
+              color: tsMessage.startsWith('Conectado') ? '#0F6E56' : '#A32D2D',
+            }}>
+              {tsMessage}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Configuracoes Fiscais */}
       <Card>

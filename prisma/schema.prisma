@@ -123,6 +123,7 @@ model Imovel {
   equipamentos            String?
   modeloDespesas          String   @default("INCLUIDO")
   incluirSubtracaoCaucao  Boolean  @default(false)
+  plantaPath              String?
 
   nifMaps        NifImovelMap[]
   classificacoes FaturaClassificacao[]
@@ -346,6 +347,8 @@ model Contrato {
   usarMoradaImovel    Boolean  @default(true)
   localAssinatura     String?
   dataAssinatura      DateTime?
+  contratoPdfPath     String?
+  contratoAssinadoPath String?
   criadoEm         DateTime        @default(now())
   atualizadoEm     DateTime        @updatedAt
 

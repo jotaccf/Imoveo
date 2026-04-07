@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requirePermission, type Role } from '@/lib/permissions'
 import { renderToBuffer, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { PDFDocument } from 'pdf-lib'
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs'
+import { join } from 'path'
 
 // ---------- helpers ----------
 
@@ -156,6 +159,7 @@ interface ContratoData {
       dataContratoArrendamento: Date | null
       equipamentos: string | null
       modeloDespesas: string
+      plantaPath: string | null
       incluirSubtracaoCaucao: boolean
       fracoes: { id: string }[]
     }
@@ -664,18 +668,49 @@ export async function GET(req: NextRequest) {
       limiteElectricidade: cfg(configs, 'limite_electricidade', '0'),
     }
 
-    const buffer = await renderToBuffer(
+    const contractBuffer = await renderToBuffer(
       <ContratoPDF contrato={contrato as unknown as ContratoData} empresa={empresa} />
     )
-    const uint8 = new Uint8Array(buffer)
+
+    // Merge com planta do imóvel (se existir)
+    let finalBuffer: Uint8Array
+    const plantaPath = contrato.fracao?.imovel?.plantaPath
+      ? join(process.cwd(), contrato.fracao.imovel.plantaPath)
+      : null
+
+    if (plantaPath && existsSync(plantaPath) && plantaPath.endsWith('.pdf')) {
+      // Merge contrato + planta PDF
+      const contractPdf = await PDFDocument.load(contractBuffer)
+      const plantaPdf = await PDFDocument.load(readFileSync(plantaPath))
+      const pages = await contractPdf.copyPages(plantaPdf, plantaPdf.getPageIndices())
+      for (const page of pages) contractPdf.addPage(page)
+      const merged = await contractPdf.save()
+      finalBuffer = new Uint8Array(merged)
+    } else {
+      finalBuffer = new Uint8Array(contractBuffer)
+    }
+
+    // Guardar cópia local
+    const contractsDir = join(process.cwd(), 'uploads', 'contratos')
+    try { mkdirSync(contractsDir, { recursive: true }) } catch { /* */ }
+    const safeName = contrato.nomeInquilino.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '')
+    const localFilename = `${contrato.id}_${safeName}.pdf`
+    const localPath = join(contractsDir, localFilename)
+    writeFileSync(localPath, finalBuffer)
+
+    // Guardar path na DB
+    await prisma.contrato.update({
+      where: { id: contrato.id },
+      data: { contratoPdfPath: `uploads/contratos/${localFilename}` },
+    })
 
     const filename = `Contrato_${contrato.nomeInquilino.replace(/\s+/g, '_')}.pdf`
 
-    return new Response(uint8, {
+    return new Response(finalBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': String(buffer.length),
+        'Content-Length': String(finalBuffer.length),
       },
     })
   } catch (e) {

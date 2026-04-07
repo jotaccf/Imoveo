@@ -1,9 +1,9 @@
 'use client'
 
-import { Fragment, useEffect, useState, useCallback } from 'react'
+import { Fragment, useEffect, useState, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { ChevronDown, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
+import { ChevronDown, ChevronRight, ArrowUp, ArrowDown, Upload, Trash2, FileText, Image } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -64,6 +64,8 @@ interface Imovel {
   moradaProprietarios: string | null
   // Equipamentos
   equipamentos: string | null
+  // Planta
+  plantaPath: string | null
 }
 
 const ESTADO_BADGE: Record<string, 'green' | 'red' | 'amber' | 'gray'> = {
@@ -145,6 +147,8 @@ export default function ImoveisPage() {
   const [fracaoForm, setFracaoForm] = useState(emptyFracaoForm)
   const [editFracaoId, setEditFracaoId] = useState<string | null>(null)
   const [fracaoImovelId, setFracaoImovelId] = useState<string | null>(null)
+  const [plantaUploading, setPlantaUploading] = useState(false)
+  const plantaInputRef = useRef<HTMLInputElement>(null)
 
   const canCreate = role ? hasPermission(role, 'imoveis:criar') : false
   const canEdit = role ? hasPermission(role, 'imoveis:editar') : false
@@ -271,6 +275,25 @@ export default function ImoveisPage() {
 
   async function handleDeleteFracao(fracaoId: string) {
     await fetch(`/api/fracoes/${fracaoId}`, { method: 'DELETE' })
+    fetchData()
+  }
+
+  async function handlePlantaUpload(file: File) {
+    if (!editId) return
+    setPlantaUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/imoveis/${editId}/planta`, { method: 'POST', body: fd })
+      if (res.ok) fetchData()
+    } catch { /* */ }
+    finally { setPlantaUploading(false) }
+  }
+
+  async function handlePlantaDelete() {
+    if (!editId) return
+    if (!confirm('Remover planta deste imovel?')) return
+    await fetch(`/api/imoveis/${editId}/planta`, { method: 'DELETE' })
     fetchData()
   }
 
@@ -624,6 +647,64 @@ export default function ImoveisPage() {
               placeholder="Lista de equipamentos incluidos no imovel..."
               style={{ resize: 'vertical' }}
             />
+
+            {/* Planta */}
+            {editId && (
+              <div className="pt-3 border-t border-gray-200">
+                <h4 className="text-sm font-semibold mb-3" style={{ color: '#0D1B1A' }}>Planta</h4>
+                {(() => {
+                  const currentImovel = imoveis.find((im) => im.id === editId)
+                  const hasPlanta = !!currentImovel?.plantaPath
+                  const isImage = hasPlanta && (currentImovel!.plantaPath!.endsWith('.jpg') || currentImovel!.plantaPath!.endsWith('.jpeg') || currentImovel!.plantaPath!.endsWith('.png'))
+                  return (
+                    <div className="space-y-2">
+                      {hasPlanta ? (
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          {isImage ? <Image size={20} className="text-brand-primary" /> : <FileText size={20} className="text-brand-primary" />}
+                          <a
+                            href={`/api/imoveis/${editId}/planta`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-[#0C447C] hover:underline flex-1"
+                          >
+                            Ver planta
+                          </a>
+                          <button
+                            onClick={handlePlantaDelete}
+                            className="p-1.5 rounded hover:bg-red-50 text-[#A32D2D] transition-colors"
+                            title="Remover planta"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-[12px] text-gray-400">Sem planta carregada</p>
+                      )}
+                      <input
+                        ref={plantaInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (f) handlePlantaUpload(f)
+                          e.target.value = ''
+                        }}
+                      />
+                      <button
+                        onClick={() => plantaInputRef.current?.click()}
+                        disabled={plantaUploading}
+                        className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-dashed border-gray-300 hover:border-brand-primary hover:bg-brand-light/20 transition-colors disabled:opacity-50"
+                      >
+                        <Upload size={16} className="text-gray-400" />
+                        {plantaUploading ? 'A carregar...' : hasPlanta ? 'Substituir planta' : 'Carregar planta'}
+                      </button>
+                      <p className="text-[10px] text-gray-400">PDF, JPG ou PNG (max 10MB)</p>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
           </div>
         )}
       </Modal>
