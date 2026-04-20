@@ -346,7 +346,7 @@ export default function PendentesPage() {
                   <Td className="text-[12px]">{f.nomeEmitente ?? '—'}</Td>
                   <Td className="text-[11px]">{f.serieDoc}/{f.numeroDoc}</Td>
                   <Td>{formatDate(f.dataFatura)}</Td>
-                  <Td className={`text-right font-medium ${emitida ? 'text-[#0F6E56]' : ''}`}>
+                  <Td className={`text-right font-medium ${emitida ? 'text-brand-dark' : ''}`}>
                     {formatCurrency(Number(f.totalComIva))}
                   </Td>
                   <Td>
@@ -354,7 +354,7 @@ export default function PendentesPage() {
                       options={imoveis.map((i) => ({ value: i.id, label: `${i.codigo} - ${i.nome}` }))}
                       value={rowStates[f.id]?.imovelId ?? ''}
                       onChange={(e) => updateRow(f.id, 'imovelId', e.target.value)}
-                      className="min-w-[160px]"
+                      className="min-w-40"
                     />
                   </Td>
                   <Td>
@@ -369,7 +369,7 @@ export default function PendentesPage() {
                           options={imovelFracoes.map((fr) => ({ value: fr.id, label: fr.nome }))}
                           value={rowStates[f.id]?.fracaoId ?? ''}
                           onChange={(e) => updateRow(f.id, 'fracaoId', e.target.value)}
-                          className="min-w-[120px]"
+                          className="min-w-30"
                         />
                       )
                     })()}
@@ -380,14 +380,14 @@ export default function PendentesPage() {
                         options={rubricas.filter((r) => r.tipo === 'RECEITA').map((r) => ({ value: r.id, label: r.nome }))}
                         value={rowStates[f.id]?.rubricaId ?? (rubricas.find((r) => r.codigo === 'REC')?.id || '')}
                         onChange={(e) => updateRow(f.id, 'rubricaId', e.target.value)}
-                        className="min-w-[140px]"
+                        className="min-w-35"
                       />
                     ) : (
                       <Select
                         options={rubricas.filter((r) => r.tipo === 'GASTO').map((r) => ({ value: r.id, label: r.nome }))}
                         value={rowStates[f.id]?.rubricaId ?? ''}
                         onChange={(e) => updateRow(f.id, 'rubricaId', e.target.value)}
-                        className="min-w-[140px]"
+                        className="min-w-35"
                       />
                     )}
                   </Td>

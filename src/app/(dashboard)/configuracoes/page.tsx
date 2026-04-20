@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -76,6 +76,40 @@ export default function ConfiguracoesPage() {
   })
   const [empresaSaving, setEmpresaSaving] = useState(false)
   const [empresaSuccess, setEmpresaSuccess] = useState(false)
+
+  // Sistema / Versao
+  const [versionInfo, setVersionInfo] = useState<{
+    currentVersion: string; latestVersion: string; updateAvailable: boolean
+    releaseUrl: string; releaseDate: string
+  } | null>(null)
+  const [versionChecking, setVersionChecking] = useState(false)
+  const [lastChecked, setLastChecked] = useState<Date | null>(null)
+  const [updating, setUpdating] = useState(false)
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null)
+
+  async function checkVersion() {
+    setVersionChecking(true)
+    setUpdateMessage(null)
+    try {
+      const res = await fetch('/api/admin/version', { cache: 'no-store' })
+      const j = await res.json()
+      if (j.data) setVersionInfo(j.data)
+      setLastChecked(new Date())
+    } catch { setUpdateMessage('Erro ao verificar versao') }
+    finally { setVersionChecking(false) }
+  }
+
+  async function handleUpdate() {
+    if (!confirm('Tem a certeza que pretende actualizar?\n\nO sistema entra em modo de manutencao e todos os utilizadores serao redirecionados.')) return
+    setUpdating(true)
+    setUpdateMessage(null)
+    try {
+      const res = await fetch('/api/admin/update', { method: 'POST' })
+      const j = await res.json()
+      setUpdateMessage(j.message || j.error || 'Update iniciado')
+    } catch { setUpdateMessage('Erro ao iniciar actualizacao') }
+    finally { setUpdating(false) }
+  }
 
   // Tailscale
   const [tsStatus, setTsStatus] = useState<{
@@ -187,6 +221,73 @@ export default function ConfiguracoesPage() {
 
   return (
     <div className="space-y-4">
+      {/* Sistema / Actualizacoes */}
+      <CollapsibleSection title="Sistema" subtitle="Versao instalada e actualizacoes" defaultOpen={true}>
+        <div className="space-y-4">
+          {/* Versao actual */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: '#0D1B1A' }}>Versao instalada:</span>
+              <span className="text-xs font-mono px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#E1F5EE', color: '#0F6E56' }}>
+                v{versionInfo?.currentVersion || '...'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              {lastChecked && (
+                <span className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                  Verificado: {lastChecked.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button
+                onClick={checkVersion}
+                disabled={versionChecking}
+                className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                style={{ color: '#6B7280' }}
+              >
+                <RefreshCw size={13} className={versionChecking ? 'animate-spin' : ''} />
+                {versionChecking ? 'A verificar...' : 'Verificar actualizacoes'}
+              </button>
+            </div>
+          </div>
+
+          {/* Resultado da verificacao */}
+          {versionInfo && (
+            <div className="rounded-lg px-4 py-3 text-sm" style={{
+              backgroundColor: versionInfo.updateAvailable ? '#FAEEDA' : '#E1F5EE',
+              color: versionInfo.updateAvailable ? '#633806' : '#0F6E56',
+            }}>
+              {versionInfo.updateAvailable ? (
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <span className="font-medium">Nova versao disponivel: v{versionInfo.latestVersion}</span>
+                    {versionInfo.releaseDate && (
+                      <span className="ml-2 text-[12px] opacity-75">
+                        ({new Date(versionInfo.releaseDate).toLocaleDateString('pt-PT')})
+                      </span>
+                    )}
+                  </div>
+                  <Button onClick={handleUpdate} disabled={updating}>
+                    {updating ? 'A actualizar...' : 'Actualizar agora'}
+                  </Button>
+                </div>
+              ) : (
+                <span>Sistema actualizado — v{versionInfo.currentVersion} e a versao mais recente</span>
+              )}
+            </div>
+          )}
+
+          {/* Mensagem de feedback */}
+          {updateMessage && (
+            <div className="rounded-lg px-4 py-3 text-[12px]" style={{
+              backgroundColor: updateMessage.includes('Erro') ? '#FCEBEB' : '#E1F5EE',
+              color: updateMessage.includes('Erro') ? '#A32D2D' : '#0F6E56',
+            }}>
+              {updateMessage}
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
       {/* Dados da Empresa */}
       <CollapsibleSection title="Dados da Empresa" subtitle="Utilizados na geracao de contratos PDF (Primeira Outorgante)" defaultOpen={false}>
         <div className="space-y-4">
@@ -281,7 +382,7 @@ export default function ConfiguracoesPage() {
                       type="checkbox"
                       checked={String(config[field.key]) === 'true'}
                       onChange={(e) => handleChange(field.key, e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 accent-[#1D9E75]"
+                      className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
                     />
                     <span className="text-sm font-medium" style={{ color: '#0D1B1A' }}>
                       {field.label}

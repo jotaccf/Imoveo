@@ -283,7 +283,7 @@ export default function LancamentosPage() {
 
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex-1 min-w-[200px] max-w-xs">
+        <div className="flex-1 min-w-50 max-w-xs">
           <Input placeholder="Pesquisar..." value={search} onChange={(e) => { setSearch(e.target.value); resetPage() }} />
         </div>
         <div className="w-48">
@@ -391,7 +391,7 @@ export default function LancamentosPage() {
                   <Td>
                     <div className="flex items-center gap-2">
                       {canEdit && (
-                        <button onClick={() => openEdit(l)} className="text-[12px] text-[#1D9E75] hover:underline">Editar</button>
+                        <button onClick={() => openEdit(l)} className="text-[12px] text-brand-primary hover:underline">Editar</button>
                       )}
                       {canDelete && (
                         <button onClick={() => handleDelete(l.id)} className="text-[12px] text-[#A32D2D] hover:underline">Remover</button>
@@ -564,7 +564,7 @@ export default function LancamentosPage() {
           <div>
             <h4 className="text-[11px] font-medium text-[#6B7280] uppercase mb-2">Notas</h4>
             <textarea
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#1D9E75] resize-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-primary resize-none"
               rows={3}
               value={form.notas}
               onChange={(e) => setForm({ ...form, notas: e.target.value })}

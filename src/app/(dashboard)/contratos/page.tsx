@@ -603,7 +603,7 @@ export default function ContratosPage() {
                 type="checkbox"
                 checked={form.usarMoradaImovel}
                 onChange={(e) => setForm({ ...form, usarMoradaImovel: e.target.checked })}
-                className="w-4 h-4 rounded border-gray-300 accent-[#1D9E75]"
+                className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
               />
               <span className="text-sm">Usar morada do imovel durante vigencia</span>
             </div>
@@ -642,7 +642,7 @@ export default function ContratosPage() {
                 type="checkbox"
                 checked={form.renovacaoAuto}
                 onChange={(e) => setForm({ ...form, renovacaoAuto: e.target.checked })}
-                className="w-4 h-4 rounded border-gray-300 accent-[#1D9E75]"
+                className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
               />
               <span className="text-sm">Renovacao automatica</span>
             </div>
