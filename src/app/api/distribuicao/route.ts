@@ -14,7 +14,7 @@ const createSchema = z.object({
     imovelId: z.string().min(1),
     fracaoId: z.string().optional(),
     percentagem: z.number().optional(),
-  })).min(1),
+  })),
 })
 
 export async function GET() {
@@ -59,11 +59,8 @@ export async function POST(req: NextRequest) {
       create: { nif: nifEntidade, nome: nomeEntidade, tipo: 'FORNECEDOR' },
     })
 
-    // Desactivar template anterior se existir
-    await prisma.distribuicaoTemplate.updateMany({
-      where: { nifEntidade },
-      data: { ativo: false },
-    })
+    // Remover template anterior se existir (cascade apaga linhas)
+    await prisma.distribuicaoTemplate.deleteMany({ where: { nifEntidade } })
 
     // Criar novo template
     const template = await prisma.distribuicaoTemplate.create({
@@ -91,55 +88,72 @@ export async function POST(req: NextRequest) {
     // Aplicar template a faturas pendentes existentes com o mesmo NIF
     const pendentes = await prisma.fatura.findMany({
       where: {
-        classificacoes: { none: {} },
         OR: [
           { nifEmitente: nifEntidade },
           { nifDestinatario: nifEntidade },
         ],
+        classificacoes: {
+          none: { confirmado: true },
+        },
       },
     })
 
     let aplicadas = 0
-    for (const fatura of pendentes) {
-      const total = Number(fatura.totalComIva)
-      for (let i = 0; i < template.linhas.length; i++) {
-        const linha = template.linhas[i]
-        let pct: number
-        if (tipo === 'IGUAL') {
-          pct = 100 / template.linhas.length
-        } else {
-          pct = Number(linha.percentagem || 0)
-        }
-        let valor: number
-        if (i === template.linhas.length - 1) {
-          const somaAnt = template.linhas.slice(0, i).reduce((s, l) => {
-            const p = tipo === 'IGUAL' ? 100 / template.linhas.length : Number(l.percentagem || 0)
-            return s + Math.round(total * p) / 100
-          }, 0)
-          valor = Math.round((total - somaAnt) * 100) / 100
-        } else {
-          valor = Math.round(total * pct) / 100
-        }
-        await prisma.faturaClassificacao.create({
-          data: {
-            faturaId: fatura.id,
-            imovelId: linha.imovelId,
-            rubricaId: template.rubricaId,
-            fracaoId: linha.fracaoId,
-            origem: 'AUTOMATICA',
-            confirmado: false,
-            valorAtribuido: valor,
-            percentagem: pct,
-          },
+    const n = template.linhas.length
+
+    if (n === 0) {
+      // Sem linhas = so sugerir rubrica
+      for (const fatura of pendentes) {
+        await prisma.fatura.update({
+          where: { id: fatura.id },
+          data: { rubricaSugeridaId: rubricaId },
         })
+        aplicadas++
       }
-      aplicadas++
+    } else {
+      // Com linhas = classificar automaticamente
+      for (const fatura of pendentes) {
+        await prisma.faturaClassificacao.deleteMany({
+          where: { faturaId: fatura.id },
+        })
+        const total = Number(fatura.totalComIva)
+        for (let i = 0; i < n; i++) {
+          const linha = template.linhas[i]
+          const pct = tipo === 'PERCENTAGEM'
+            ? Number(linha.percentagem || 0)
+            : 100 / n
+          let valor: number
+          if (i === n - 1) {
+            const somaAnt = template.linhas.slice(0, i).reduce((s, _, j) => {
+              const p = tipo === 'PERCENTAGEM' ? Number(template.linhas[j].percentagem || 0) : 100 / n
+              return s + Math.round(total * p) / 100
+            }, 0)
+            valor = Math.round((total - somaAnt) * 100) / 100
+          } else {
+            valor = Math.round(total * pct) / 100
+          }
+
+          await prisma.faturaClassificacao.create({
+            data: {
+              faturaId: fatura.id,
+              imovelId: linha.imovelId,
+              rubricaId: template.rubricaId,
+              fracaoId: linha.fracaoId,
+              origem: 'AUTOMATICA',
+              confirmado: true,
+              valorAtribuido: valor,
+              percentagem: pct,
+            },
+          })
+        }
+        aplicadas++
+      }
     }
 
     return Response.json({
       data: template,
       aplicadas,
-      message: aplicadas > 0 ? `Template criado e aplicado a ${aplicadas} fatura${aplicadas > 1 ? 's' : ''} pendente${aplicadas > 1 ? 's' : ''}` : 'Template criado',
+      message: aplicadas > 0 ? `Regra criada e aplicada a ${aplicadas} fatura${aplicadas > 1 ? 's' : ''} pendente${aplicadas > 1 ? 's' : ''}` : 'Regra criada',
     }, { status: 201 })
   } catch (e) {
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })

@@ -32,18 +32,22 @@ export async function GET(req: NextRequest) {
     }
 
     // Where with tipo + search filters
-    const where = { ...baseWhere }
-    if (tipo) {
-      where.importacao = { tipoFicheiro: tipo }
-    }
-    if (search) {
-      where.OR = [
-        { nifEmitente: { contains: search } },
-        { nifDestinatario: { contains: search } },
-        { nomeEmitente: { contains: search, mode: 'insensitive' } },
-        { serieDoc: { contains: search } },
-        { numeroDoc: { contains: search } },
-      ]
+    const where: Record<string, unknown> = {
+      AND: [
+        // Filtro base: so pendentes (sem classificacoes ou todas nao confirmadas)
+        baseWhere,
+        // Filtros adicionais
+        ...(tipo ? [{ importacao: { tipoFicheiro: tipo } }] : []),
+        ...(search ? [{
+          OR: [
+            { nifEmitente: { contains: search } },
+            { nifDestinatario: { contains: search } },
+            { nomeEmitente: { contains: search, mode: 'insensitive' } },
+            { serieDoc: { contains: search } },
+            { numeroDoc: { contains: search } },
+          ],
+        }] : []),
+      ],
     }
 
     // Count by tipo (always on full set, ignoring tipo filter)

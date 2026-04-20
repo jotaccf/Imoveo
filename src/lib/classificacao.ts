@@ -18,32 +18,39 @@ export async function classificarFatura(
     include: { linhas: true },
   })
 
-  if (template && template.linhas.length > 0) {
-    const fatura = await prisma.fatura.findUnique({ where: { id: faturaId } })
-    if (!fatura) return false
-    const total = Number(fatura.totalComIva)
-
+  if (template) {
     let rubricaId = template.rubricaId
     if (isReceita) {
       const rubricaRec = await prisma.rubrica.findUnique({ where: { codigo: 'REC' } })
       if (rubricaRec) rubricaId = rubricaRec.id
     }
 
-    const linhas = template.linhas
-    for (let i = 0; i < linhas.length; i++) {
-      const linha = linhas[i]
-      let pct: number
-      if (template.tipo === 'IGUAL') {
-        pct = 100 / linhas.length
-      } else {
-        pct = Number(linha.percentagem || 0)
-      }
+    // Sem linhas = so sugerir rubrica (imovel escolhido ao classificar)
+    if (template.linhas.length === 0) {
+      await prisma.fatura.update({
+        where: { id: faturaId },
+        data: { rubricaSugeridaId: rubricaId },
+      })
+      return 'PARTIAL'
+    }
 
-      // Ultima linha absorve arredondamento
+    // Com linhas = classificar automaticamente
+    const fatura = await prisma.fatura.findUnique({ where: { id: faturaId } })
+    if (!fatura) return false
+    const total = Number(fatura.totalComIva)
+    const linhas = template.linhas
+    const n = linhas.length
+
+    for (let i = 0; i < n; i++) {
+      const linha = linhas[i]
+      const pct = template.tipo === 'PERCENTAGEM'
+        ? Number(linha.percentagem || 0)
+        : 100 / n
+
       let valor: number
-      if (i === linhas.length - 1) {
+      if (i === n - 1) {
         const somaAnterior = linhas.slice(0, i).reduce((sum, l, j) => {
-          const p = template.tipo === 'IGUAL' ? 100 / linhas.length : Number(l.percentagem || 0)
+          const p = template.tipo === 'PERCENTAGEM' ? Number(linhas[j].percentagem || 0) : 100 / n
           return sum + Math.round(total * p) / 100
         }, 0)
         valor = Math.round((total - somaAnterior) * 100) / 100
@@ -58,51 +65,13 @@ export async function classificarFatura(
           rubricaId,
           fracaoId: linha.fracaoId,
           origem: 'AUTOMATICA',
-          confirmado: false, // utilizador deve confirmar splits
+          confirmado: true,
           valorAtribuido: valor,
           percentagem: pct,
         },
       })
     }
     return 'TEMPLATE'
-  }
-
-  // 2. Regra completa (NIF + Imovel especifico)
-  const mapping = await prisma.nifImovelMap.findFirst({
-    where: { nifEntidade, imovelId: { not: null }, ativo: true },
-  })
-
-  if (mapping && mapping.imovelId) {
-    let rubricaId = mapping.rubricaId
-    if (isReceita) {
-      const rubricaRec = await prisma.rubrica.findUnique({ where: { codigo: 'REC' } })
-      if (rubricaRec) rubricaId = rubricaRec.id
-    }
-
-    await prisma.faturaClassificacao.create({
-      data: {
-        faturaId,
-        imovelId: mapping.imovelId,
-        rubricaId,
-        fracaoId: mapping.fracaoId,
-        origem: 'AUTOMATICA',
-        confirmado: true,
-      },
-    })
-    return 'FULL'
-  }
-
-  // 3. Regra so rubrica (NIF sem imovel)
-  const rubricaOnly = await prisma.nifImovelMap.findFirst({
-    where: { nifEntidade, imovelId: null, ativo: true },
-  })
-
-  if (rubricaOnly) {
-    await prisma.fatura.update({
-      where: { id: faturaId },
-      data: { rubricaSugeridaId: rubricaOnly.rubricaId },
-    })
-    return 'PARTIAL'
   }
 
   return false

@@ -39,13 +39,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     })
 
-    // Criar regra automatica se solicitado
+    // Criar regra automatica se solicitado (DistribuicaoTemplate unificado)
     if (parsed.data.criarRegra) {
-      // Para emitidas: usar o NIF do inquilino (nifRegra ou nifDestinatario)
-      // Para recebidas: usar o NIF do emitente (fornecedor)
       const nifParaRegra = parsed.data.nifRegra || fatura.nifDestinatario || fatura.nifEmitente
 
-      // Criar entidade PRIMEIRO (foreign key obriga)
+      // Garantir entidade existe
       await prisma.entidade.upsert({
         where: { nif: nifParaRegra },
         update: {},
@@ -56,15 +54,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
       })
 
-      // Depois criar o mapeamento NIF -> imovel
-      await prisma.nifImovelMap.upsert({
-        where: { nifEntidade_imovelId: { nifEntidade: nifParaRegra, imovelId: parsed.data.imovelId } },
-        update: { rubricaId: parsed.data.rubricaId, fracaoId: parsed.data.fracaoId || null, ativo: true },
-        create: {
+      // Criar/substituir template unificado para este NIF
+      await prisma.distribuicaoTemplate.deleteMany({ where: { nifEntidade: nifParaRegra } })
+      await prisma.distribuicaoTemplate.create({
+        data: {
           nifEntidade: nifParaRegra,
-          imovelId: parsed.data.imovelId,
           rubricaId: parsed.data.rubricaId,
-          fracaoId: parsed.data.fracaoId || null,
+          tipo: 'IGUAL',
+          linhas: {
+            create: [{
+              imovelId: parsed.data.imovelId,
+              fracaoId: parsed.data.fracaoId || null,
+              ordem: 0,
+            }],
+          },
         },
       })
 
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const pendentes = await prisma.fatura.findMany({
         where: {
           classificacoes: { none: {} },
-          id: { not: id }, // excluir a fatura que acabamos de classificar
+          id: { not: id },
           ...(isEmitida
             ? { nifDestinatario: nifParaRegra }
             : { nifEmitente: nifParaRegra }
@@ -114,5 +117,70 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     console.error('[classificar] ERROR:', e)
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
     return Response.json({ error: 'Erro interno', details: String(e) }, { status: 500 })
+  }
+}
+
+// PUT — substituir classificacoes existentes (editar)
+const putSchema = z.object({
+  linhas: z.array(z.object({
+    imovelId: z.string().min(1),
+    rubricaId: z.string().min(1),
+    fracaoId: z.string().optional(),
+    valor: z.number().optional(),
+  })).min(1),
+})
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth()
+    if (!session) return Response.json({ error: 'Nao autenticado' }, { status: 401 })
+    requirePermission(session.user.role as Role, 'pendentes:classificar')
+
+    const { id } = await params
+    const body = await req.json()
+    const parsed = putSchema.safeParse(body)
+    if (!parsed.success) return Response.json({ error: 'Dados invalidos' }, { status: 400 })
+
+    const fatura = await prisma.fatura.findUnique({ where: { id } })
+    if (!fatura) return Response.json({ error: 'Fatura nao encontrada' }, { status: 404 })
+
+    // Apagar classificacoes existentes
+    await prisma.faturaClassificacao.deleteMany({ where: { faturaId: id } })
+
+    // Criar novas
+    await prisma.faturaClassificacao.createMany({
+      data: parsed.data.linhas.map((l) => ({
+        faturaId: id,
+        imovelId: l.imovelId,
+        rubricaId: l.rubricaId,
+        fracaoId: l.fracaoId || null,
+        valorAtribuido: l.valor ?? null,
+        origem: 'MANUAL',
+        confirmado: true,
+      })),
+    })
+
+    return Response.json({ ok: true })
+  } catch (e) {
+    if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
+    return Response.json({ error: 'Erro interno' }, { status: 500 })
+  }
+}
+
+// DELETE — anular classificacao (volta a pendentes)
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth()
+    if (!session) return Response.json({ error: 'Nao autenticado' }, { status: 401 })
+    requirePermission(session.user.role as Role, 'pendentes:classificar')
+
+    const { id } = await params
+    await prisma.faturaClassificacao.deleteMany({ where: { faturaId: id } })
+    await prisma.fatura.update({ where: { id }, data: { rubricaSugeridaId: null } })
+
+    return Response.json({ ok: true })
+  } catch (e) {
+    if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
+    return Response.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

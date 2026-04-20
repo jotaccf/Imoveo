@@ -68,12 +68,33 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
 
+    // Buscar template para saber o NIF
+    const template = await prisma.distribuicaoTemplate.findUnique({
+      where: { id },
+      select: { nifEntidade: true },
+    })
+    if (!template) return Response.json({ error: 'Template nao encontrado' }, { status: 404 })
+
+    // Remover classificacoes automaticas nao confirmadas deste NIF
+    await prisma.faturaClassificacao.deleteMany({
+      where: {
+        confirmado: false,
+        origem: 'AUTOMATICA',
+        fatura: {
+          OR: [
+            { nifEmitente: template.nifEntidade },
+            { nifDestinatario: template.nifEntidade },
+          ],
+        },
+      },
+    })
+
     await prisma.distribuicaoTemplate.update({
       where: { id },
       data: { ativo: false },
     })
 
-    return Response.json({ message: 'Template desactivado' })
+    return Response.json({ message: 'Template desactivado e classificacoes pendentes removidas' })
   } catch (e) {
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
     return Response.json({ error: 'Erro interno' }, { status: 500 })
