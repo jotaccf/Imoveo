@@ -65,14 +65,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   function toggleSection(key: string) {
     setOpenSections((prev) => {
-      const next = { ...prev, [key]: prev[key] === false ? true : false }
+      const isOpen = prev[key] !== false
+      const next = { ...prev, [key]: !isOpen }
       localStorage.setItem('imoveo-sidebar-sections', JSON.stringify(next))
       return next
     })
   }
 
   function isSectionOpen(key: string): boolean {
-    return openSections[key] !== false // default open
+    return openSections[key] !== false
   }
 
   const role = (session?.user as { role?: Role } | undefined)?.role

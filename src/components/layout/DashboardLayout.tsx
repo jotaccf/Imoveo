@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession()
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -17,6 +19,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('imoveo-sidebar-collapsed', String(collapsed))
   }, [collapsed])
+
+  // Sessao invalida apos restart do servidor — forcar logout
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user && !(session.user as { role?: string }).role) {
+      signOut({ callbackUrl: '/login' })
+    }
+  }, [status, session])
 
   return (
     <div className="flex h-screen">
