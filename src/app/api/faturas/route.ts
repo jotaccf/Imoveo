@@ -19,12 +19,15 @@ export async function GET(req: NextRequest) {
     const page = Math.max(Number(searchParams.get('page')) || 1, 1)
     const limit = Math.min(Math.max(Number(searchParams.get('limit')) || 100, 10), 500)
 
-    const where: Record<string, unknown> = { classificacao: { isNot: null } }
+    const where: Record<string, unknown> = {
+      classificacoes: { some: { confirmado: true } },
+    }
 
     if (imovelId || rubricaId) {
-      where.classificacao = {}
-      if (imovelId) (where.classificacao as Record<string, unknown>).imovelId = imovelId
-      if (rubricaId) (where.classificacao as Record<string, unknown>).rubricaId = rubricaId
+      const classFilter: Record<string, unknown> = { confirmado: true }
+      if (imovelId) classFilter.imovelId = imovelId
+      if (rubricaId) classFilter.rubricaId = rubricaId
+      where.classificacoes = { some: classFilter }
     }
 
     if (dataDe || dataAte) {
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
     const [faturas, total] = await Promise.all([
       prisma.fatura.findMany({
         where,
-        include: { classificacao: { include: { imovel: true, rubrica: true } }, importacao: true },
+        include: { classificacoes: { include: { imovel: true, rubrica: true } }, importacao: true },
         orderBy: { dataFatura: 'desc' },
         skip: (page - 1) * limit,
         take: limit,

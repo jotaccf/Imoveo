@@ -71,6 +71,12 @@ enum EstadoContrato {
   TERMINADO
 }
 
+enum TipoDistribuicao {
+  IGUAL
+  PERCENTAGEM
+  MANUAL
+}
+
 model Utilizador {
   id           String    @id @default(cuid())
   nome         String
@@ -125,11 +131,12 @@ model Imovel {
   incluirSubtracaoCaucao  Boolean  @default(false)
   plantaPath              String?
 
-  nifMaps        NifImovelMap[]
-  classificacoes FaturaClassificacao[]
-  lancamentos    LancamentoManual[]
-  fracoes        Fracao[]
-  contratos      Contrato[]
+  nifMaps            NifImovelMap[]
+  classificacoes     FaturaClassificacao[]
+  lancamentos        LancamentoManual[]
+  fracoes            Fracao[]
+  contratos          Contrato[]
+  distribuicaoLinhas DistribuicaoLinha[]
 
   @@map("imoveis")
 }
@@ -166,11 +173,12 @@ model Fracao {
   mobilia             String?
   numeroAnexo         String?
 
-  imovel         Imovel              @relation(fields: [imovelId], references: [id])
-  nifMaps        NifImovelMap[]
-  classificacoes FaturaClassificacao[]
-  lancamentos    LancamentoManual[]
-  contratos      Contrato[]
+  imovel             Imovel              @relation(fields: [imovelId], references: [id])
+  nifMaps            NifImovelMap[]
+  classificacoes     FaturaClassificacao[]
+  lancamentos        LancamentoManual[]
+  contratos          Contrato[]
+  distribuicaoLinhas DistribuicaoLinha[]
 
   @@map("fracoes")
 }
@@ -182,7 +190,8 @@ model Entidade {
   tipo     TipoEntidade @default(FORNECEDOR)
   criadoEm DateTime     @default(now())
 
-  nifMaps NifImovelMap[]
+  nifMaps               NifImovelMap[]
+  distribuicaoTemplates DistribuicaoTemplate[]
 
   @@map("entidades")
 }
@@ -190,13 +199,13 @@ model Entidade {
 model NifImovelMap {
   id          String   @id @default(cuid())
   nifEntidade String
-  imovelId    String
+  imovelId    String?
   rubricaId   String
   fracaoId    String?
   ativo       Boolean  @default(true)
   criadoEm    DateTime @default(now())
 
-  imovel   Imovel    @relation(fields: [imovelId], references: [id])
+  imovel   Imovel?   @relation(fields: [imovelId], references: [id])
   rubrica  Rubrica   @relation(fields: [rubricaId], references: [id])
   entidade Entidade? @relation(fields: [nifEntidade], references: [nif])
   fracao   Fracao?   @relation(fields: [fracaoId], references: [id])
@@ -213,9 +222,11 @@ model Rubrica {
   tipo   TipoRubrica @default(GASTO)
   ordem  Int         @default(0)
 
-  nifMaps        NifImovelMap[]
-  classificacoes FaturaClassificacao[]
-  lancamentos    LancamentoManual[]
+  nifMaps               NifImovelMap[]
+  classificacoes        FaturaClassificacao[]
+  lancamentos           LancamentoManual[]
+  faturasSugeridas      Fatura[]              @relation("RubricaSugerida")
+  distribuicaoTemplates DistribuicaoTemplate[]
 
   @@map("rubricas")
 }
@@ -251,10 +262,12 @@ model Fatura {
   totalComIva     Decimal  @db.Decimal(12, 2)
   tipoDocumento   String?
   importacaoId    String
+  rubricaSugeridaId String?
   criadoEm        DateTime @default(now())
 
-  importacao    Importacao           @relation(fields: [importacaoId], references: [id])
-  classificacao FaturaClassificacao?
+  importacao      Importacao           @relation(fields: [importacaoId], references: [id])
+  rubricaSugerida Rubrica?             @relation("RubricaSugerida", fields: [rubricaSugeridaId], references: [id])
+  classificacoes  FaturaClassificacao[]
 
   @@unique([nifEmitente, serieDoc, numeroDoc])
   @@index([nifEmitente])
@@ -264,21 +277,24 @@ model Fatura {
 }
 
 model FaturaClassificacao {
-  id           String              @id @default(cuid())
-  faturaId     String              @unique
-  imovelId     String
-  rubricaId    String
-  fracaoId     String?
-  origem       OrigemClassificacao @default(AUTOMATICA)
-  confirmado   Boolean             @default(false)
-  criadoEm     DateTime            @default(now())
-  atualizadoEm DateTime            @updatedAt
+  id             String              @id @default(cuid())
+  faturaId       String
+  imovelId       String
+  rubricaId      String
+  fracaoId       String?
+  origem         OrigemClassificacao @default(AUTOMATICA)
+  confirmado     Boolean             @default(false)
+  valorAtribuido Decimal?            @db.Decimal(12, 2)
+  percentagem    Decimal?            @db.Decimal(5, 2)
+  criadoEm       DateTime            @default(now())
+  atualizadoEm   DateTime            @updatedAt
 
   fatura  Fatura  @relation(fields: [faturaId], references: [id])
   imovel  Imovel  @relation(fields: [imovelId], references: [id])
   rubrica Rubrica @relation(fields: [rubricaId], references: [id])
   fracao  Fracao? @relation(fields: [fracaoId], references: [id])
 
+  @@index([faturaId])
   @@map("fatura_classificacao")
 }
 
@@ -311,6 +327,40 @@ model LancamentoManual {
   @@index([imovelId])
   @@index([dataDoc])
   @@map("lancamentos_manuais")
+}
+
+model DistribuicaoTemplate {
+  id           String            @id @default(cuid())
+  nifEntidade  String
+  rubricaId    String
+  tipo         TipoDistribuicao  @default(IGUAL)
+  nome         String?
+  ativo        Boolean           @default(true)
+  criadoEm     DateTime          @default(now())
+  atualizadoEm DateTime          @updatedAt
+
+  entidade Entidade            @relation(fields: [nifEntidade], references: [nif])
+  rubrica  Rubrica             @relation(fields: [rubricaId], references: [id])
+  linhas   DistribuicaoLinha[]
+
+  @@unique([nifEntidade])
+  @@map("distribuicao_templates")
+}
+
+model DistribuicaoLinha {
+  id          String   @id @default(cuid())
+  templateId  String
+  imovelId    String
+  fracaoId    String?
+  percentagem Decimal? @db.Decimal(5, 2)
+  ordem       Int      @default(0)
+
+  template DistribuicaoTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  imovel   Imovel               @relation(fields: [imovelId], references: [id])
+  fracao   Fracao?              @relation(fields: [fracaoId], references: [id])
+
+  @@unique([templateId, imovelId])
+  @@map("distribuicao_linhas")
 }
 
 model Contrato {

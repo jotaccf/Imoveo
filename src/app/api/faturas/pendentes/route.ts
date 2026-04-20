@@ -17,7 +17,12 @@ export async function GET(req: NextRequest) {
     const page = Math.max(Number(searchParams.get('page')) || 1, 1)
     const limit = Math.min(Math.max(Number(searchParams.get('limit')) || 50, 10), 500)
 
-    const baseWhere: Record<string, unknown> = { classificacao: null }
+    const baseWhere: Record<string, unknown> = {
+      OR: [
+        { classificacoes: { none: {} } },
+        { classificacoes: { every: { confirmado: false } } },
+      ],
+    }
 
     if (dataDe || dataAte) {
       const dateFilter: Record<string, Date> = {}
@@ -50,7 +55,11 @@ export async function GET(req: NextRequest) {
     const [pendentes, total] = await Promise.all([
       prisma.fatura.findMany({
         where,
-        include: { importacao: { select: { tipoFicheiro: true } } },
+        include: {
+          importacao: { select: { tipoFicheiro: true } },
+          rubricaSugerida: true,
+          classificacoes: { where: { confirmado: false }, include: { imovel: true, rubrica: true } },
+        },
         orderBy: { dataFatura: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -68,7 +77,8 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (e) {
+    console.error('[pendentes] ERROR:', e)
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
-    return Response.json({ error: 'Erro interno' }, { status: 500 })
+    return Response.json({ error: 'Erro interno', details: String(e) }, { status: 500 })
   }
 }

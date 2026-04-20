@@ -162,6 +162,7 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
   const dateStartExpanded = new Date(ano - 1, 11, 1) // 1 Dec year-1
   const faturaClassificacoes = await prisma.faturaClassificacao.findMany({
     where: {
+      confirmado: true,
       fatura: { dataFatura: { gte: dateStartExpanded, lt: dateEnd } },
     },
     include: { fatura: true },
@@ -188,7 +189,7 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
       if (fc.imovelId !== im.id) continue
       const rub = rubricaMap.get(fc.rubricaId)
       if (!rub) continue
-      const valor = toNum(fc.fatura.totalComIva)
+      const valor = fc.valorAtribuido ? toNum(fc.valorAtribuido) : toNum(fc.fatura.totalComIva)
       const dataFatura = new Date(fc.fatura.dataFatura)
       const faturaAno = dataFatura.getFullYear()
       const mesIdx = dataFatura.getMonth()
@@ -258,7 +259,7 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
       const rub = rubricaMap.get(fc.rubricaId)
       if (!rub || rub.tipo !== 'RECEITA') continue
       const entry = receitaPorFracao.get(fc.fracaoId) || { total: 0, count: 0 }
-      entry.total += toNum(fc.fatura.totalComIva)
+      entry.total += fc.valorAtribuido ? toNum(fc.valorAtribuido) : toNum(fc.fatura.totalComIva)
       entry.count += 1
       receitaPorFracao.set(fc.fracaoId, entry)
     }

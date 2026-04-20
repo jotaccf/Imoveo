@@ -115,8 +115,9 @@ export async function processarImportacao(
       const nifParaClassificar = tipoFicheiro === 'EMITIDAS' && fp.nifDestinatario
         ? fp.nifDestinatario
         : fp.nifEmitente
-      const classified = await classificarFatura(fatura.id, nifParaClassificar, tipoFicheiro === 'EMITIDAS')
-      if (!classified) {
+      const result = await classificarFatura(fatura.id, nifParaClassificar, tipoFicheiro === 'EMITIDAS')
+      // FULL = classificada, TEMPLATE/PARTIAL = precisa confirmacao, false = sem regra
+      if (result !== 'FULL') {
         pendentes++
       }
     } catch {

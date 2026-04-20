@@ -273,7 +273,7 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[280px] flex items-center justify-center text-[12px] text-gray-400">Sem dados</div>
+            <div className="h-70 flex items-center justify-center text-[12px] text-gray-400">Sem dados</div>
           )}
         </Card>
       </div>
@@ -385,7 +385,7 @@ export default function DashboardPage() {
               const isExpanded = expandedId === im.id
               return (
                 <Fragment key={im.id}>
-                  <tr className={`${isExpanded ? 'bg-[#F4FAF8]' : 'hover:bg-gray-50'} ${hasFracoes ? 'cursor-pointer' : ''}`}
+                  <tr className={`${isExpanded ? 'bg-brand-pale' : 'hover:bg-gray-50'} ${hasFracoes ? 'cursor-pointer' : ''}`}
                     onClick={() => hasFracoes && setExpandedId(isExpanded ? null : im.id)}>
                     <td className="px-2 py-2.5 border-b border-gray-50">
                       {hasFracoes ? (

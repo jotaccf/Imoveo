@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
     const dateStartExpanded = new Date(ano - 1, 11, 1)
     const faturas = await prisma.faturaClassificacao.findMany({
       where: {
+        confirmado: true,
         fatura: { dataFatura: { gte: dateStartExpanded, lt: dateEnd } },
       },
       include: { fatura: true, rubrica: true },
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
         for (const fc of faturas) {
           if (fc.rubricaId === r.id && fc.imovelId === im.id) {
             if (!includeRecord(new Date(fc.fatura.dataFatura), isReceita)) continue
-            soma += Number(fc.fatura.totalComIva)
+            soma += fc.valorAtribuido ? Number(fc.valorAtribuido) : Number(fc.fatura.totalComIva)
           }
         }
 

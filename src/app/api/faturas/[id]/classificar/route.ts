@@ -72,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const isEmitida = !!parsed.data.nifRegra
       const pendentes = await prisma.fatura.findMany({
         where: {
-          classificacao: null,
+          classificacoes: { none: {} },
           id: { not: id }, // excluir a fatura que acabamos de classificar
           ...(isEmitida
             ? { nifDestinatario: nifParaRegra }

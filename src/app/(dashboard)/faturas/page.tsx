@@ -22,11 +22,12 @@ interface Fatura {
   totalIva: string
   totalComIva: string
   tipoDocumento: string | null
-  classificacao: {
+  classificacoes: {
     imovel: { id: string; nome: string; codigo: string }
     rubrica: { id: string; nome: string; tipo: string }
     origem: string
-  } | null
+    valorAtribuido: string | null
+  }[]
   importacao: { periodo: string; tipoFicheiro: string }
 }
 
@@ -105,13 +106,13 @@ export default function FaturasPage() {
   ]
 
   const filtered = faturas.filter((f) => {
-    if (filterTipo === 'RECEITA') return f.classificacao?.rubrica?.tipo === 'RECEITA'
-    if (filterTipo === 'GASTO') return f.classificacao?.rubrica?.tipo === 'GASTO'
+    if (filterTipo === 'RECEITA') return f.classificacoes?.[0]?.rubrica?.tipo === 'RECEITA'
+    if (filterTipo === 'GASTO') return f.classificacoes?.[0]?.rubrica?.tipo === 'GASTO'
     return true
   })
 
-  const countReceitas = faturas.filter((f) => f.classificacao?.rubrica?.tipo === 'RECEITA').length
-  const countGastos = faturas.filter((f) => f.classificacao?.rubrica?.tipo === 'GASTO').length
+  const countReceitas = faturas.filter((f) => f.classificacoes?.[0]?.rubrica?.tipo === 'RECEITA').length
+  const countGastos = faturas.filter((f) => f.classificacoes?.[0]?.rubrica?.tipo === 'GASTO').length
 
   const totalSemIva = filterTipo === 'TODAS' ? serverTotais.totalSemIva : filtered.reduce((s, f) => s + Number(f.totalSemIva), 0)
   const totalIva = filterTipo === 'TODAS' ? serverTotais.totalIva : filtered.reduce((s, f) => s + Number(f.totalIva), 0)
@@ -252,7 +253,7 @@ export default function FaturasPage() {
               <tr key={f.id}>
                 <Td>
                   {(() => {
-                    const isReceita = f.classificacao?.rubrica?.tipo === 'RECEITA'
+                    const isReceita = f.classificacoes?.[0]?.rubrica?.tipo === 'RECEITA'
                     const nif = isReceita ? (f.nifDestinatario || f.nifEmitente) : f.nifEmitente
                     if (!nif || nif === 'EMITIDA') return <span className="text-[11px] text-gray-400 italic">Sem NIF</span>
                     return <span className="font-mono text-[11px]">{nif}</span>
@@ -265,17 +266,17 @@ export default function FaturasPage() {
                 <Td className="text-right text-[12px]">{formatCurrency(Number(f.totalSemIva))}</Td>
                 <Td className="text-right text-[12px] text-gray-400">{formatCurrency(Number(f.totalIva))}</Td>
                 <Td className="text-right font-medium">{formatCurrency(Number(f.totalComIva))}</Td>
-                <Td className="text-[12px]">{f.classificacao?.imovel ? `${f.classificacao.imovel.codigo}` : '—'}</Td>
+                <Td className="text-[12px]">{f.classificacoes?.[0]?.imovel ? `${f.classificacoes[0].imovel.codigo}` : '—'}</Td>
                 <Td>
-                  {f.classificacao?.rubrica ? (
-                    <Badge variant={f.classificacao.rubrica.tipo === 'RECEITA' ? 'teal' : 'blue'}>
-                      {f.classificacao.rubrica.nome}
+                  {f.classificacoes?.[0]?.rubrica ? (
+                    <Badge variant={f.classificacoes[0].rubrica.tipo === 'RECEITA' ? 'teal' : 'blue'}>
+                      {f.classificacoes[0].rubrica.nome}
                     </Badge>
                   ) : '—'}
                 </Td>
                 <Td>
-                  <Badge variant={f.classificacao?.origem === 'AUTOMATICA' ? 'green' : 'purple'}>
-                    {f.classificacao?.origem === 'AUTOMATICA' ? 'Auto' : 'Manual'}
+                  <Badge variant={f.classificacoes?.[0]?.origem === 'AUTOMATICA' ? 'green' : 'purple'}>
+                    {f.classificacoes?.[0]?.origem === 'AUTOMATICA' ? 'Auto' : 'Manual'}
                   </Badge>
                 </Td>
               </tr>

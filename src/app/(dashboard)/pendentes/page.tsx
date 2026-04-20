@@ -20,6 +20,8 @@ interface Fatura {
   dataFatura: string
   totalComIva: string
   importacao?: { tipoFicheiro: string }
+  rubricaSugerida?: { id: string; nome: string } | null
+  classificacoes?: { confirmado: boolean; imovel?: { id: string; nome: string }; rubrica?: { id: string; nome: string } }[]
 }
 
 interface ImovelOption { id: string; nome: string; codigo: string; tipo: string }
@@ -63,7 +65,19 @@ export default function PendentesPage() {
     fetch(`/api/faturas/pendentes?${params}`)
       .then((r) => r.json())
       .then((j) => {
-        if (j.data) setFaturas(j.data)
+        if (j.data) {
+          setFaturas(j.data)
+          // Pre-preencher rubrica sugerida nos rowStates
+          const prefilled: Record<string, RowState> = {}
+          for (const f of j.data as Fatura[]) {
+            if (f.rubricaSugerida) {
+              prefilled[f.id] = { imovelId: '', rubricaId: f.rubricaSugerida.id, fracaoId: '' }
+            }
+          }
+          if (Object.keys(prefilled).length > 0) {
+            setRowStates((prev) => ({ ...prefilled, ...prev }))
+          }
+        }
         setPagination(j.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 })
         if (j.contagem) setContagem(j.contagem)
       })

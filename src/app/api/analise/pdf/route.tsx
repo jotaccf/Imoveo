@@ -113,7 +113,7 @@ async function loadAnaliseData(ano: number) {
 
   const dateStartExpanded = new Date(ano - 1, 11, 1)
   const faturaClassificacoes = await prisma.faturaClassificacao.findMany({
-    where: { fatura: { dataFatura: { gte: dateStartExpanded, lt: dateEnd } } },
+    where: { confirmado: true, fatura: { dataFatura: { gte: dateStartExpanded, lt: dateEnd } } },
     include: { fatura: true },
   })
 
@@ -133,7 +133,7 @@ async function loadAnaliseData(ano: number) {
       if (fc.imovelId !== im.id) continue
       const rub = rubricaMap.get(fc.rubricaId)
       if (!rub) continue
-      const valor = toNum(fc.fatura.totalComIva)
+      const valor = fc.valorAtribuido ? toNum(fc.valorAtribuido) : toNum(fc.fatura.totalComIva)
       const dataFatura = new Date(fc.fatura.dataFatura)
       const faturaAno = dataFatura.getFullYear()
       const mesIdx = dataFatura.getMonth()

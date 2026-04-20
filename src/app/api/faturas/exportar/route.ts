@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl
     const periodo = searchParams.get('periodo')
 
-    const where: Record<string, unknown> = { classificacao: { isNot: null } }
+    const where: Record<string, unknown> = { classificacoes: { some: { confirmado: true } } }
     if (periodo) {
       const [year, month] = periodo.split('-').map(Number)
       const start = new Date(year, (month || 1) - 1, 1)
@@ -23,22 +23,28 @@ export async function GET(req: NextRequest) {
 
     const faturas = await prisma.fatura.findMany({
       where,
-      include: { classificacao: { include: { imovel: true, rubrica: true } } },
+      include: { classificacoes: { where: { confirmado: true }, include: { imovel: true, rubrica: true } } },
       orderBy: { dataFatura: 'asc' },
     })
 
-    const rows = faturas.map((f) => ({
-      'NIF Emitente': f.nifEmitente,
-      'Nome Emitente': f.nomeEmitente || '',
-      'Serie': f.serieDoc,
-      'Numero': f.numeroDoc,
-      'Data': f.dataFatura.toISOString().split('T')[0],
-      'Valor s/ IVA': Number(f.totalSemIva),
-      'IVA': Number(f.totalIva),
-      'Total c/ IVA': Number(f.totalComIva),
-      'Imovel': f.classificacao?.imovel.nome || '',
-      'Rubrica': f.classificacao?.rubrica.nome || '',
-    }))
+    // Uma linha por classificacao (suporta splits)
+    const rows: Record<string, unknown>[] = []
+    for (const f of faturas) {
+      for (const c of f.classificacoes) {
+        rows.push({
+          'NIF Emitente': f.nifEmitente,
+          'Nome Emitente': f.nomeEmitente || '',
+          'Serie': f.serieDoc,
+          'Numero': f.numeroDoc,
+          'Data': f.dataFatura.toISOString().split('T')[0],
+          'Valor s/ IVA': Number(f.totalSemIva),
+          'IVA': Number(f.totalIva),
+          'Total c/ IVA': c.valorAtribuido ? Number(c.valorAtribuido) : Number(f.totalComIva),
+          'Imovel': c.imovel.nome,
+          'Rubrica': c.rubrica.nome,
+        })
+      }
+    }
 
     const csv = Papa.unparse(rows)
 
