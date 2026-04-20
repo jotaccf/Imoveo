@@ -116,6 +116,18 @@ export default function MapeamentoPage() {
     fetchData()
   }
 
+  const [migrando, setMigrando] = useState(false)
+
+  async function handleMigrar() {
+    setMigrando(true)
+    const res = await fetch('/api/admin/migrar-regras', { method: 'POST' })
+    const j = await res.json()
+    if (j.ok) alert(j.message)
+    else alert(j.error || 'Erro ao migrar')
+    setMigrando(false)
+    fetchData()
+  }
+
   const filtered = regras.filter((r) =>
     !search ||
     r.nifEntidade.includes(search) ||
@@ -131,6 +143,11 @@ export default function MapeamentoPage() {
           <Input placeholder="Pesquisar NIF, nome..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         {canEdit && <Button onClick={openCreate}>Adicionar regra</Button>}
+        {canEdit && (
+          <Button variant="secondary" onClick={handleMigrar} disabled={migrando}>
+            {migrando ? 'A migrar...' : 'Importar regras antigas'}
+          </Button>
+        )}
       </div>
 
       <Card className="p-0">
