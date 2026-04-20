@@ -13,19 +13,29 @@ function getLocalVersion(): string {
   }
 }
 
-async function getRemoteVersion(): Promise<{ version: string; url: string; date: string } | null> {
+async function getRemoteVersion(): Promise<{ version: string; date: string } | null> {
   try {
-    const res = await fetch('https://api.github.com/repos/jotaccf/Imoveo/releases/latest', {
-      headers: { Accept: 'application/vnd.github.v3+json' },
-      next: { revalidate: 1800 }, // cache 30 min
-    })
+    // Verificar VERSION directamente do repo (nao precisa de GitHub Releases)
+    const res = await fetch(
+      'https://raw.githubusercontent.com/jotaccf/Imoveo/main/VERSION',
+      { next: { revalidate: 300 } } // cache 5 min
+    )
     if (!res.ok) return null
-    const data = await res.json()
-    return {
-      version: (data.tag_name || '').replace(/^v/, ''),
-      url: data.html_url || '',
-      date: data.published_at || '',
-    }
+    const version = (await res.text()).trim()
+
+    // Obter data do ultimo commit para contexto
+    const commitRes = await fetch(
+      'https://api.github.com/repos/jotaccf/Imoveo/commits/main',
+      {
+        headers: { Accept: 'application/vnd.github.v3+json' },
+        next: { revalidate: 300 },
+      }
+    )
+    const date = commitRes.ok
+      ? (await commitRes.json()).commit?.committer?.date || ''
+      : ''
+
+    return { version, date }
   } catch {
     return null
   }
@@ -61,7 +71,7 @@ export async function GET() {
         currentVersion: local,
         latestVersion: remote?.version || local,
         updateAvailable,
-        releaseUrl: remote?.url || '',
+        releaseUrl: '',
         releaseDate: remote?.date || '',
       },
     })
