@@ -42,6 +42,8 @@ export default function PendentesPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'TODAS' | 'RECEITAS' | 'DESPESAS'>('TODAS')
   const [search, setSearch] = useState('')
+  const [dataDe, setDataDe] = useState('')
+  const [dataAte, setDataAte] = useState('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(50)
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 })
@@ -55,6 +57,8 @@ export default function PendentesPage() {
     if (filter === 'RECEITAS') params.set('tipo', 'EMITIDAS')
     if (filter === 'DESPESAS') params.set('tipo', 'RECEBIDAS')
     if (search) params.set('search', search)
+    if (dataDe) params.set('dataDe', dataDe)
+    if (dataAte) params.set('dataAte', dataAte)
 
     fetch(`/api/faturas/pendentes?${params}`)
       .then((r) => r.json())
@@ -65,7 +69,7 @@ export default function PendentesPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [page, limit, filter, search])
+  }, [page, limit, filter, search, dataDe, dataAte])
 
   useEffect(() => { fetchPendentes() }, [fetchPendentes])
 
@@ -233,6 +237,63 @@ export default function PendentesPage() {
           </select>
         </div>
       </div>
+
+      {/* Date range filter */}
+      <Card className="p-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-36">
+              <label className="block text-[10px] font-medium text-[#6B7280] mb-0.5">DE</label>
+              <input
+                type="date"
+                value={dataDe}
+                onChange={(e) => { setDataDe(e.target.value); setPage(1) }}
+                className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-primary"
+              />
+            </div>
+            <span className="text-gray-400 mt-4">—</span>
+            <div className="w-36">
+              <label className="block text-[10px] font-medium text-[#6B7280] mb-0.5">ATÉ</label>
+              <input
+                type="date"
+                value={dataAte}
+                onChange={(e) => { setDataAte(e.target.value); setPage(1) }}
+                className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-primary"
+              />
+            </div>
+            {(dataDe || dataAte) && (
+              <button
+                onClick={() => { setDataDe(''); setDataAte(''); setPage(1) }}
+                className="mt-4 text-[11px] text-gray-400 hover:text-gray-600"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-4">
+            {(() => {
+              const now = new Date()
+              const y = now.getFullYear()
+              const m = now.getMonth()
+              const presets = [
+                { label: 'Este mês', de: `${y}-${String(m + 1).padStart(2, '0')}-01`, ate: '' },
+                { label: 'Mês anterior', de: `${m === 0 ? y - 1 : y}-${String(m === 0 ? 12 : m).padStart(2, '0')}-01`, ate: `${m === 0 ? y - 1 : y}-${String(m === 0 ? 12 : m).padStart(2, '0')}-${new Date(m === 0 ? y - 1 : y, m === 0 ? 12 : m, 0).getDate()}` },
+                { label: 'Este ano', de: `${y}-01-01`, ate: '' },
+                { label: 'Ano anterior', de: `${y - 1}-01-01`, ate: `${y - 1}-12-31` },
+              ]
+              return presets.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => { setDataDe(p.de); setDataAte(p.ate); setPage(1) }}
+                  className="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-500 hover:bg-gray-50"
+                >
+                  {p.label}
+                </button>
+              ))
+            })()}
+          </div>
+        </div>
+      </Card>
 
       <div className="flex gap-2">
         {(['TODAS', 'RECEITAS', 'DESPESAS'] as const).map((f) => (

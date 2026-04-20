@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     requirePermission(session.user.role as Role, 'pendentes:ver')
 
     const { searchParams } = req.nextUrl
-    const ano = searchParams.get('ano')
+    const dataDe = searchParams.get('dataDe')
+    const dataAte = searchParams.get('dataAte')
     const tipo = searchParams.get('tipo') // 'EMITIDAS' | 'RECEBIDAS' | null
     const search = searchParams.get('search')
     const page = Math.max(Number(searchParams.get('page')) || 1, 1)
@@ -18,9 +19,11 @@ export async function GET(req: NextRequest) {
 
     const baseWhere: Record<string, unknown> = { classificacao: null }
 
-    if (ano) {
-      const year = Number(ano)
-      baseWhere.dataFatura = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) }
+    if (dataDe || dataAte) {
+      const dateFilter: Record<string, Date> = {}
+      if (dataDe) dateFilter.gte = new Date(dataDe)
+      if (dataAte) dateFilter.lte = new Date(dataAte + 'T23:59:59')
+      baseWhere.dataFatura = dateFilter
     }
 
     // Where with tipo + search filters
