@@ -22,16 +22,22 @@ function cfgBool(configs: Record<string, string>, key: string, fallback: boolean
   return v === 'true' || v === '1'
 }
 
-// IRC PME calculation
+// IRC PME calculation com reporte de prejuizos (Art. 52.º CIRC)
 function calcIrc(
-  resultadoAntesImpostos: number,
+  lucroTributavel: number,
   derramaPct: number,
   regimePme: boolean,
   taxaPme: number,
   taxaNormal: number,
   limitePme: number,
+  prejuizoDisponivel: number = 0,
+  reportePct: number = 65,
 ) {
-  const mc = Math.max(resultadoAntesImpostos, 0)
+  // Dedução de prejuízos: limite 65% do lucro tributável
+  const deducaoPrejuizos = lucroTributavel > 0
+    ? Math.min(prejuizoDisponivel, lucroTributavel * (reportePct / 100))
+    : 0
+  const mc = Math.max(lucroTributavel - deducaoPrejuizos, 0)
 
   let coleta: number
   if (regimePme) {
@@ -40,11 +46,16 @@ function calcIrc(
     coleta = mc * (taxaNormal / 100)
   }
 
-  const derrama = mc * (derramaPct / 100)
+  // Derrama incide sobre lucro tributável (não sobre matéria colectável)
+  const derrama = Math.max(lucroTributavel, 0) * (derramaPct / 100)
   const ircTotal = coleta + derrama
-  const taxaEfetiva = pct(ircTotal, resultadoAntesImpostos)
+  const taxaEfetiva = pct(ircTotal, lucroTributavel)
 
-  return { mc, coleta, derrama, ircTotal, taxaEfetiva }
+  // Prejuizo a reportar para anos seguintes
+  const prejuizoNovo = lucroTributavel < 0 ? Math.abs(lucroTributavel) : 0
+  const prejuizoRestante = prejuizoDisponivel - deducaoPrejuizos + prejuizoNovo
+
+  return { mc, coleta, derrama, ircTotal, taxaEfetiva, deducaoPrejuizos, prejuizoDisponivel, prejuizoRestante, lucroTributavel }
 }
 
 // ---------- Types ----------
@@ -104,6 +115,9 @@ export interface IrcAnalise {
   ircTotal: number
   taxaEfetiva: number
   retencoesFeitasTotal: number
+  prejuizoDisponivel?: number
+  deducaoPrejuizos?: number
+  prejuizoRestante?: number
 }
 
 export interface ConfigAnalise {
@@ -129,17 +143,73 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
   const dateStart = new Date(ano, 0, 1)
   const dateEnd = new Date(ano + 1, 0, 1)
 
-  // 1. Load configurations
+  // 1. Load configurations — prioridade: ConfiguracaoFiscal do ano > fallback ano mais proximo > Configuracao global > defaults
+  const configFiscalAno = await prisma.configuracaoFiscal.findUnique({ where: { ano } })
+  const configFiscalMaisProxima = configFiscalAno ?? await prisma.configuracaoFiscal.findFirst({
+    where: { ano: { lte: ano } },
+    orderBy: { ano: 'desc' },
+  })
+
   const configRows = await prisma.configuracao.findMany()
   const configMap: Record<string, string> = {}
   for (const r of configRows) configMap[r.chave] = r.valor
 
-  const derramaMunicipal = cfgNum(configMap, 'derramaMunicipal', 1.5)
-  const regimePme = cfgBool(configMap, 'regimePme', true)
-  const taxaIrcPme = cfgNum(configMap, 'taxaIrcPme', 17)
-  const taxaIrcNormal = cfgNum(configMap, 'taxaIrcNormal', 21)
-  const limitePme = cfgNum(configMap, 'limitePme', 50000)
-  const taxaRetencao = cfgNum(configMap, 'taxaRetencao', 25)
+  const derramaMunicipal = configFiscalMaisProxima
+    ? Number(configFiscalMaisProxima.derramaMunicipal)
+    : cfgNum(configMap, 'derramaMunicipal', 1.5)
+  const regimePme = configFiscalMaisProxima
+    ? configFiscalMaisProxima.regimePme
+    : cfgBool(configMap, 'regimePme', true)
+  const taxaIrcPme = configFiscalMaisProxima
+    ? Number(configFiscalMaisProxima.taxaIrcPme)
+    : cfgNum(configMap, 'taxaIrcPme', 17)
+  const taxaIrcNormal = configFiscalMaisProxima
+    ? Number(configFiscalMaisProxima.taxaIrcNormal)
+    : cfgNum(configMap, 'taxaIrcNormal', 21)
+  const limitePme = configFiscalMaisProxima
+    ? Number(configFiscalMaisProxima.limitePme)
+    : cfgNum(configMap, 'limitePme', 50000)
+  const taxaRetencao = configFiscalMaisProxima
+    ? Number(configFiscalMaisProxima.taxaRetencao)
+    : cfgNum(configMap, 'taxaRetencao', 25)
+  const reportePrejuizoPct = configFiscalMaisProxima
+    ? Number(configFiscalMaisProxima.reportePrejuizoPct)
+    : 65
+
+  // 1b. Calcular prejuízos acumulados de anos anteriores
+  const anosAnteriores = await prisma.fatura.findMany({
+    where: { dataFatura: { lt: dateStart } },
+    select: { dataFatura: true },
+    distinct: ['dataFatura'],
+  })
+  const anosUnicos = new Set<number>()
+  for (const f of anosAnteriores) anosUnicos.add(f.dataFatura.getFullYear())
+  // Calcular prejuizos por ano (recursivo conceptualmente, aqui linear)
+  let prejuizoDisponivel = 0
+  const anosOrdenados = Array.from(anosUnicos).sort()
+  for (const a of anosOrdenados) {
+    const startA = new Date(a, 0, 1)
+    const endA = new Date(a + 1, 0, 1)
+    const fatA = await prisma.fatura.findMany({
+      where: { dataFatura: { gte: startA, lt: endA } },
+      include: { classificacoes: { include: { rubrica: true } } },
+    })
+    let receita = 0, gasto = 0
+    for (const f of fatA) {
+      for (const c of f.classificacoes) {
+        const v = c.valorAtribuido ? Number(c.valorAtribuido) : Number(f.totalComIva)
+        if (c.rubrica.tipo === 'RECEITA') receita += v
+        else gasto += v
+      }
+    }
+    const lt = receita - gasto
+    if (lt < 0) {
+      prejuizoDisponivel += Math.abs(lt)
+    } else {
+      const deducao = Math.min(prejuizoDisponivel, lt * (reportePrejuizoPct / 100))
+      prejuizoDisponivel -= deducao
+    }
+  }
 
   // 2. Load active properties with fracoes
   const imoveisDb = await prisma.imovel.findMany({
@@ -387,6 +457,8 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
     taxaIrcPme,
     taxaIrcNormal,
     limitePme,
+    prejuizoDisponivel,
+    reportePrejuizoPct,
   )
 
   const retencoesFeitasTotal = rendaPagaTotal * (taxaRetencao / 100)
@@ -399,6 +471,9 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
     ircTotal: ircCalc.ircTotal,
     taxaEfetiva: ircCalc.taxaEfetiva,
     retencoesFeitasTotal,
+    prejuizoDisponivel: ircCalc.prejuizoDisponivel,
+    deducaoPrejuizos: ircCalc.deducaoPrejuizos,
+    prejuizoRestante: ircCalc.prejuizoRestante,
   }
 
   // ---------- Monthly evolution ----------

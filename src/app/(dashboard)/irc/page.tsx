@@ -56,7 +56,7 @@ export default function IRCPage() {
   const coletaPme = Math.min(mc, limitePme) * (taxaPme / 100)
   const coletaNormal = Math.max(mc - limitePme, 0) * (taxaNormal / 100)
   const coletaSubtotal = irc.coleta || (coletaPme + coletaNormal)
-  const derramaValor = irc.derrama || (mc * derramaPct / 100)
+  const derramaValor = irc.derrama || (Math.max(resultadoAI, 0) * derramaPct / 100)
   const ircTotal = irc.ircTotal || (coletaSubtotal + derramaValor)
   const taxaEfetiva = irc.taxaEfetiva || (resultadoAI > 0 ? (ircTotal / resultadoAI) * 100 : 0)
 
@@ -94,9 +94,25 @@ export default function IRCPage() {
             <span style={{ color: '#A32D2D' }}>{formatCurrency(g.custoTotal || 0)}</span>
           </div>
           <div className="flex justify-between pt-1 border-t border-gray-100">
-            <span className="font-medium">3. (=) Resultado antes impostos</span>
+            <span className="font-medium">3. (=) Lucro tributavel</span>
             <span className="font-medium" style={{ color: resultadoAI >= 0 ? '#0F6E56' : '#A32D2D' }}>{formatCurrency(resultadoAI)}</span>
           </div>
+
+          {(irc.prejuizoDisponivel || 0) > 0 && (
+            <>
+              <div className="flex justify-between pl-4">
+                <span style={{ color: '#6B7280' }}>(-) Deducao prejuizos anos anteriores (max 65%)</span>
+                <span style={{ color: '#A32D2D' }}>-{formatCurrency(irc.deducaoPrejuizos || 0)}</span>
+              </div>
+              <div className="flex justify-between pl-4 text-[11px]">
+                <span style={{ color: '#9CA3AF' }}>Prejuizos disponiveis: {formatCurrency(irc.prejuizoDisponivel || 0)} | A reportar: {formatCurrency(irc.prejuizoRestante || 0)}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-gray-50">
+                <span className="font-medium">(=) Materia colectavel</span>
+                <span className="font-medium">{formatCurrency(mc)}</span>
+              </div>
+            </>
+          )}
 
           <div className="pt-2"><span className="font-medium">4. Coleta IRC (regime PME):</span></div>
           <div className="flex justify-between pl-4">
@@ -113,7 +129,7 @@ export default function IRCPage() {
           </div>
 
           <div className="flex justify-between">
-            <span style={{ color: '#6B7280' }}>5. (+) Derrama municipal ({derramaPct}%)</span>
+            <span style={{ color: '#6B7280' }}>5. (+) Derrama municipal ({derramaPct}% sobre lucro tributavel)</span>
             <span>{formatCurrency(derramaValor)}</span>
           </div>
 
