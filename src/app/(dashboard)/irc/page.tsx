@@ -46,7 +46,7 @@ export default function IRCPage() {
   }))
 
   const resultadoAI = g.resultadoLiquido || 0
-  const mc = irc.mc || 0
+  const mc = irc.materiaColetavel || irc.mc || 0
   const limitePme = cfg.limitePme || 50000
   const taxaPme = cfg.taxaIrcPme || 17
   const taxaNormal = cfg.taxaIrcNormal || 21
