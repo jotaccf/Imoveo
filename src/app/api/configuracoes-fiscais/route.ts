@@ -19,7 +19,7 @@ export async function GET() {
   try {
     const session = await auth()
     if (!session) return Response.json({ error: 'Nao autenticado' }, { status: 401 })
-    requirePermission(session.user.role as Role, 'configuracoes:ver')
+    requirePermission(session.user.role as Role, 'utilizadores:ver')
 
     const configs = await prisma.configuracaoFiscal.findMany({
       orderBy: { ano: 'desc' },
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     if (!session) return Response.json({ error: 'Nao autenticado' }, { status: 401 })
-    requirePermission(session.user.role as Role, 'configuracoes:editar')
+    requirePermission(session.user.role as Role, 'utilizadores:editar')
 
     const body = await req.json()
     const parsed = upsertSchema.safeParse(body)

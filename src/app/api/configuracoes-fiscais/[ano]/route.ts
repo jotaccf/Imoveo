@@ -7,7 +7,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await auth()
     if (!session) return Response.json({ error: 'Nao autenticado' }, { status: 401 })
-    requirePermission(session.user.role as Role, 'configuracoes:editar')
+    requirePermission(session.user.role as Role, 'utilizadores:editar')
 
     const { ano } = await params
     await prisma.configuracaoFiscal.delete({ where: { ano: Number(ano) } })

@@ -370,57 +370,184 @@ export default function ConfiguracoesPage() {
         </CollapsibleSection>
       )}
 
-      {/* Configuracoes Fiscais */}
-      <CollapsibleSection title="Configuracoes Fiscais" defaultOpen={true}>
-        <div className="space-y-5">
-          {fields.map((field) => (
-            <div key={field.key}>
-              {field.type === 'toggle' ? (
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={String(config[field.key]) === 'true'}
-                      onChange={(e) => handleChange(field.key, e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
-                    />
-                    <span className="text-sm font-medium" style={{ color: '#0D1B1A' }}>
-                      {field.label}
-                    </span>
-                  </label>
-                  <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                    {field.description}
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-xs">
-                  <Input
-                    label={field.label}
-                    type="number"
-                    step="0.01"
-                    value={config[field.key] as number}
-                    onChange={(e) => handleChange(field.key, parseFloat(e.target.value) || 0)}
-                  />
-                  <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
-                    {field.description}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 flex items-center gap-3">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'A guardar...' : 'Guardar configuracoes'}
-          </Button>
-          {success && (
-            <span className="text-sm" style={{ color: '#0F6E56' }}>
-              Configuracoes guardadas com sucesso.
-            </span>
-          )}
-        </div>
+      {/* Configuracoes Fiscais por Ano */}
+      <CollapsibleSection title="Configuracoes Fiscais" subtitle="Taxas de IRC, derrama, retencao e reporte de prejuizos por ano fiscal" defaultOpen={true}>
+        <ConfigFiscaisAno />
       </CollapsibleSection>
+    </div>
+  )
+}
+
+// ============================================================
+//  Configuracoes Fiscais por Ano
+// ============================================================
+
+interface ConfigFiscal {
+  ano: number
+  taxaIrcPme: string
+  taxaIrcNormal: string
+  limitePme: string
+  derramaMunicipal: string
+  taxaRetencao: string
+  reportePrejuizoPct: string
+  regimePme: boolean
+}
+
+const emptyFiscalForm = {
+  ano: new Date().getFullYear(),
+  taxaIrcPme: 15,
+  taxaIrcNormal: 19,
+  limitePme: 50000,
+  derramaMunicipal: 1.5,
+  taxaRetencao: 25,
+  reportePrejuizoPct: 65,
+  regimePme: true,
+}
+
+function ConfigFiscaisAno() {
+  const [configs, setConfigs] = useState<ConfigFiscal[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingAno, setEditingAno] = useState<number | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState(emptyFiscalForm)
+  const [saving, setSaving] = useState(false)
+
+  function fetchConfigs() {
+    setLoading(true)
+    fetch('/api/configuracoes-fiscais')
+      .then((r) => r.json())
+      .then((j) => { if (j.data) setConfigs(j.data) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { fetchConfigs() }, [])
+
+  function startEdit(c: ConfigFiscal) {
+    setForm({
+      ano: c.ano,
+      taxaIrcPme: Number(c.taxaIrcPme),
+      taxaIrcNormal: Number(c.taxaIrcNormal),
+      limitePme: Number(c.limitePme),
+      derramaMunicipal: Number(c.derramaMunicipal),
+      taxaRetencao: Number(c.taxaRetencao),
+      reportePrejuizoPct: Number(c.reportePrejuizoPct),
+      regimePme: c.regimePme,
+    })
+    setEditingAno(c.ano)
+    setCreating(false)
+  }
+
+  function startCreate() {
+    const ultimoAno = configs[0]?.ano ?? new Date().getFullYear()
+    const ultimaConfig = configs[0]
+    setForm({
+      ano: ultimoAno + 1,
+      taxaIrcPme: ultimaConfig ? Number(ultimaConfig.taxaIrcPme) : 15,
+      taxaIrcNormal: ultimaConfig ? Number(ultimaConfig.taxaIrcNormal) : 19,
+      limitePme: ultimaConfig ? Number(ultimaConfig.limitePme) : 50000,
+      derramaMunicipal: ultimaConfig ? Number(ultimaConfig.derramaMunicipal) : 1.5,
+      taxaRetencao: ultimaConfig ? Number(ultimaConfig.taxaRetencao) : 25,
+      reportePrejuizoPct: ultimaConfig ? Number(ultimaConfig.reportePrejuizoPct) : 65,
+      regimePme: ultimaConfig ? ultimaConfig.regimePme : true,
+    })
+    setCreating(true)
+    setEditingAno(null)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await fetch('/api/configuracoes-fiscais', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+    setSaving(false)
+    setEditingAno(null)
+    setCreating(false)
+    fetchConfigs()
+  }
+
+  async function handleDelete(ano: number) {
+    if (!confirm(`Remover configuracao fiscal para ${ano}?`)) return
+    await fetch(`/api/configuracoes-fiscais/${ano}`, { method: 'DELETE' })
+    fetchConfigs()
+  }
+
+  if (loading) return <div className="text-sm text-gray-400">A carregar...</div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={startCreate}>Adicionar ano</Button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-[11px] uppercase" style={{ color: '#6B7280' }}>
+            <tr className="border-b border-gray-100">
+              <th className="text-left py-2 px-3">Ano</th>
+              <th className="text-right py-2 px-3">IRC PME %</th>
+              <th className="text-right py-2 px-3">IRC Normal %</th>
+              <th className="text-right py-2 px-3">Limite PME €</th>
+              <th className="text-right py-2 px-3">Derrama %</th>
+              <th className="text-right py-2 px-3">Retencao %</th>
+              <th className="text-right py-2 px-3">Prejuizos %</th>
+              <th className="py-2 px-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {configs.map((c) => (
+              <tr key={c.ano} className="border-b border-gray-50">
+                <td className="py-2 px-3 font-medium">{c.ano}</td>
+                <td className="py-2 px-3 text-right">{Number(c.taxaIrcPme).toFixed(2)}</td>
+                <td className="py-2 px-3 text-right">{Number(c.taxaIrcNormal).toFixed(2)}</td>
+                <td className="py-2 px-3 text-right">{Number(c.limitePme).toLocaleString('pt-PT')}</td>
+                <td className="py-2 px-3 text-right">{Number(c.derramaMunicipal).toFixed(2)}</td>
+                <td className="py-2 px-3 text-right">{Number(c.taxaRetencao).toFixed(2)}</td>
+                <td className="py-2 px-3 text-right">{Number(c.reportePrejuizoPct).toFixed(0)}</td>
+                <td className="py-2 px-3 text-right">
+                  <button onClick={() => startEdit(c)} className="text-[12px] text-brand-primary hover:underline mr-3">Editar</button>
+                  <button onClick={() => handleDelete(c.ano)} className="text-[12px] text-[#A32D2D] hover:underline">Remover</button>
+                </td>
+              </tr>
+            ))}
+            {configs.length === 0 && (
+              <tr><td colSpan={8} className="text-center py-4 text-gray-400">Sem configuracoes</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {(editingAno !== null || creating) && (
+        <Card className="bg-gray-50">
+          <h3 className="text-sm font-semibold mb-3" style={{ color: '#0D1B1A' }}>
+            {creating ? 'Nova configuracao' : `Editar configuracao ${editingAno}`}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <Input label="Ano" type="number" value={form.ano} disabled={!creating} onChange={(e) => setForm({ ...form, ano: parseInt(e.target.value) || 0 })} />
+            <Input label="Taxa IRC PME (%)" type="number" step="0.01" value={form.taxaIrcPme} onChange={(e) => setForm({ ...form, taxaIrcPme: parseFloat(e.target.value) || 0 })} />
+            <Input label="Taxa IRC Normal (%)" type="number" step="0.01" value={form.taxaIrcNormal} onChange={(e) => setForm({ ...form, taxaIrcNormal: parseFloat(e.target.value) || 0 })} />
+            <Input label="Limite PME (€)" type="number" step="100" value={form.limitePme} onChange={(e) => setForm({ ...form, limitePme: parseFloat(e.target.value) || 0 })} />
+            <Input label="Derrama Municipal (%)" type="number" step="0.01" value={form.derramaMunicipal} onChange={(e) => setForm({ ...form, derramaMunicipal: parseFloat(e.target.value) || 0 })} />
+            <Input label="Taxa Retencao (%)" type="number" step="0.01" value={form.taxaRetencao} onChange={(e) => setForm({ ...form, taxaRetencao: parseFloat(e.target.value) || 0 })} />
+            <Input label="Reporte Prejuizos (%)" type="number" step="0.01" value={form.reportePrejuizoPct} onChange={(e) => setForm({ ...form, reportePrejuizoPct: parseFloat(e.target.value) || 0 })} />
+            <label className="flex items-center gap-2 cursor-pointer self-end pb-2">
+              <input type="checkbox" checked={form.regimePme} onChange={(e) => setForm({ ...form, regimePme: e.target.checked })} className="w-4 h-4 rounded accent-brand-primary" />
+              <span className="text-sm">Regime PME</span>
+            </label>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'A guardar...' : 'Guardar'}</Button>
+            <Button variant="ghost" onClick={() => { setEditingAno(null); setCreating(false) }}>Cancelar</Button>
+          </div>
+        </Card>
+      )}
+
+      <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
+        As taxas aplicam-se ao ano correspondente. Se um ano nao tiver configuracao, e usado o ano anterior mais proximo.
+        Reporte de Prejuizos: percentagem maxima do lucro tributavel que pode ser deduzida por prejuizos de anos anteriores (Art. 52.º CIRC, default 65%).
+      </p>
     </div>
   )
 }
