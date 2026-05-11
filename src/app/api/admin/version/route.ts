@@ -18,7 +18,7 @@ async function getRemoteVersion(): Promise<{ version: string; date: string } | n
     // Verificar VERSION directamente do repo (nao precisa de GitHub Releases)
     const res = await fetch(
       'https://raw.githubusercontent.com/jotaccf/Imoveo/main/VERSION',
-      { next: { revalidate: 300 } } // cache 5 min
+      { next: { revalidate: 30 } } // cache 30s
     )
     if (!res.ok) return null
     const version = (await res.text()).trim()
@@ -28,7 +28,7 @@ async function getRemoteVersion(): Promise<{ version: string; date: string } | n
       'https://api.github.com/repos/jotaccf/Imoveo/commits/main',
       {
         headers: { Accept: 'application/vnd.github.v3+json' },
-        next: { revalidate: 300 },
+        next: { revalidate: 30 },
       }
     )
     const date = commitRes.ok
