@@ -10,7 +10,14 @@ import type { ResultadosResponse, ResultadoImovel } from '@/types'
 export default function ResultadosPage() {
   const [data, setData] = useState<ResultadosResponse | null>(null)
   const [ano, setAno] = useState(String(new Date().getFullYear()))
+  const [anos, setAnos] = useState<number[]>([new Date().getFullYear()])
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/anos').then((r) => r.json()).then((j) => {
+      if (j.data && Array.isArray(j.data)) setAnos(j.data)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -25,10 +32,7 @@ export default function ResultadosPage() {
     window.open(`/api/resultados/exportar?ano=${ano}`, '_blank')
   }
 
-  const yearOptions = Array.from({ length: 5 }, (_, i) => {
-    const y = new Date().getFullYear() - i
-    return { value: String(y), label: String(y) }
-  })
+  const yearOptions = anos.map((y) => ({ value: String(y), label: String(y) }))
 
   if (loading) return <div className="text-sm text-gray-400">A carregar...</div>
   if (!data) return <div className="text-sm text-gray-400">Sem dados</div>
