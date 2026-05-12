@@ -79,18 +79,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = (user as { role: Role }).role
         return token
       }
-      // Token existente sem id ou sem role/nome — token corrompido/antigo, invalidar.
-      if (!token.id || !token.role || !token.nome) {
+      // Token sem id e' invalido. nome/role podem estar vazios — o
+      // self-healing preenche de seguida a partir da BD.
+      if (!token.id) {
         return null
       }
       // Self-healing: revalidar contra BD. Permite detectar role alterado,
-      // user desactivado ou apagado.
+      // user desactivado ou apagado. Nome vazio em BD e' permitido.
       const db = await prisma.utilizador.findUnique({
-        where: { id: token.id },
+        where: { id: token.id as string },
         select: { id: true, nome: true, role: true, ativo: true },
       })
       if (!db || !db.ativo) return null
-      token.nome = db.nome
+      token.nome = db.nome ?? ''
       token.role = db.role as Role
       return token
     },

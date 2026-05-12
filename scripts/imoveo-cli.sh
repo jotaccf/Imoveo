@@ -89,7 +89,7 @@ kill_parallel_pm2() {
 
 cmd_start() {
   log "A iniciar Imoveo..."
-  sudo -u "$APP_USER" pm2 start "$APP_DIR/ecosystem.config.js"
+  sudo -u "$APP_USER" pm2 start "$CURRENT_DIR/ecosystem.config.js"
   sudo -u "$APP_USER" pm2 save
   log "Imoveo iniciado"
 }
@@ -315,6 +315,7 @@ EOF
   chmod -R 755 "$RELEASE/.next/static" "$RELEASE/public"
 
   [ -f "$RELEASE/server.js" ] || err "server.js nao foi criado em $RELEASE"
+  [ -f "$RELEASE/ecosystem.config.js" ] || err "ecosystem.config.js em falta em $RELEASE — verificar repo"
 }
 
 # Faz swap atomico do current, mata orphans/daemons paralelos, restart pm2.
@@ -349,17 +350,26 @@ _swap_and_restart() {
     err "Porta :$APP_PORT ainda ocupada apos cleanup — abortar"
   fi
 
-  sudo -u "$APP_USER" pm2 start "$APP_DIR/ecosystem.config.js"
+  if ! sudo -u "$APP_USER" pm2 start "$CURRENT_DIR/ecosystem.config.js"; then
+    err "pm2 start falhou — release $RELEASE nao foi activada"
+  fi
   sudo -u "$APP_USER" pm2 save >/dev/null 2>&1
 
-  # 4. Aguardar arranque
+  # 4. Aguardar arranque (testa /api/health — endpoint publico desde v1.4.4)
   log "A aguardar arranque..."
   for i in $(seq 1 30); do
-    if curl -sf "http://localhost:$APP_PORT/login" > /dev/null 2>&1; then
+    if curl -sf "http://localhost:$APP_PORT/api/health" > /dev/null 2>&1; then
+      log "App respondeu em ${i}s"
       return 0
     fi
     sleep 1
   done
+
+  # Fallback: aceitar /login se /api/health falhar (releases anteriores a v1.4.4)
+  if curl -sf "http://localhost:$APP_PORT/login" > /dev/null 2>&1; then
+    warn "App responde em /login mas nao em /api/health"
+    return 0
+  fi
   return 1
 }
 
@@ -385,7 +395,7 @@ cmd_reconcile() {
     DURATION=$((END_TIME - START_TIME))
     log "Reconcile concluido em ${DURATION}s — v$VERSION"
   else
-    warn "App nao respondeu ao health check — verificar logs: imoveo logs"
+    err "App nao respondeu ao health check apos 30s — release activa mas app DOWN. Logs: imoveo logs"
   fi
 
   trap - EXIT
@@ -482,7 +492,7 @@ cmd_update() {
     DURATION=$((END_TIME - START_TIME))
     log "Actualizado para v$VERSION em ${DURATION}s"
   else
-    warn "App nao respondeu ao health check — verificar logs: imoveo logs"
+    err "App nao respondeu ao health check apos 30s — release activa mas app DOWN. Logs: imoveo logs"
   fi
 
   trap - EXIT
