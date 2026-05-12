@@ -158,24 +158,50 @@ correcto e re-aponta current).
 
 ---
 
-### 3.4 Sessao "Boas-vindas, ." (nome vazio)
+### 3.4 Sessao "Boas-vindas, ." (nome vazio) ou Sidebar com menu reduzido
 
 **Sintomas:**
 - Apos login, dashboard mostra "Boas-vindas, ." sem nome
 - Sidebar so mostra items que nao requerem permissao (Dashboard, Importar CSV, etc.)
 - Em janela anonima funciona correctamente
 
-**Causa:** Cookie de sessao antigo no browser do utilizador (token JWT
-sem `nome`/`role` populados, ou encriptado com `NEXTAUTH_SECRET` antigo).
+**Triagem rapida — onde esta o problema?**
 
-**Resolucao para o utilizador (local):**
-1. F12 → Application → Storage → **Clear site data**
-2. Login de novo
+No browser onde o sintoma aparece, F12 → Console → cola:
 
-**Se persistir mesmo apos Clear site data:**
-- Pode ser cache agressivo do browser ou Service Worker
-- Tenta: F12 → Application → Service Workers → Unregister
-- E `Ctrl+Shift+Delete` → "All time" → Cookies + Cached files → Clear
+```js
+fetch('/api/auth/session').then(r => r.json()).then(s => console.log(JSON.stringify(s, null, 2)))
+```
+
+Compara o output com a tabela:
+
+| Output do console | Causa | Solucao |
+|---|---|---|
+| `{user: {role: "ADMIN", nome: "..."}}` | **Bundle JS cached** — auth OK, UI antiga | A |
+| `{user: {role: "OPERADOR", ...}}` | Role velho no JWT — DB pode estar a divergir | B |
+| `{user: {email, name, image}}` sem `role`/`nome` | Build em producao sem self-healing | Ver 3.10 |
+| `{}` ou `null` | Cookie corrupto / `NEXTAUTH_SECRET` rotado | C |
+
+**Solucao A — Bundle JS cached (mais comum apos deploy):**
+1. **Ctrl+Shift+R** (Chrome/Edge/Firefox) — hard reload sem cache
+2. Se nao chegar: F12 → Application → Storage → **Clear site data** → refresh
+3. Se persistir: F12 → Application → Service Workers → **Unregister** + Ctrl+Shift+Delete → "All time"
+
+**Solucao B — Role desactualizado no JWT:**
+1. Confirma role real em BD:
+   ```bash
+   sudo -u postgres psql imoveo -c "SELECT email, nome, role, ativo FROM utilizadores WHERE email='<email>';"
+   ```
+2. Se DB esta correcto: logout + login (forca novo JWT). O self-healing devia
+   actualizar mas pode demorar ate proximo refresh do client.
+3. Se DB esta errado: corrigir com UPDATE.
+
+**Solucao C — Cookie corrupto / `no matching decryption secret`:**
+- F12 → Application → Cookies → eliminar tudo do dominio → login
+
+**Causa estrutural mitigada em v1.4.5:**
+- Check `!token.nome` no `auth.ts` invalidava sessoes legitimas de users com
+  nome vazio em BD. Removido em [src/lib/auth.ts:83](src/lib/auth.ts#L83).
 
 **Resolucao universal (forca relogin de TODOS os utilizadores):**
 ```bash
