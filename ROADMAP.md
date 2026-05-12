@@ -65,6 +65,50 @@
 - [x] sudo chmod no update para permissoes de estaticos Nginx
 - [x] npm ci --loglevel=error (sem warnings durante update)
 
+## v1.3.0 — Config Fiscal por Ano + Prejuizos ✅ Released (2026-05-11)
+- [x] Configuracao fiscal por ano (taxa IRC, derrama, prejuizos reportaveis)
+- [x] Reporte de prejuizos no calculo IRC (Art. 52.º CIRC, limite 70%)
+
+## v1.3.1 — UI Config Fiscal ✅ Released (2026-05-11)
+- [x] Editor de configuracao fiscal por ano na pagina /configuracoes
+
+## v1.4.0 — Activos Fixos + Tributacao Autonoma ✅ Released (2026-05-12)
+- [x] Activos Fixos: viaturas e equipamentos (CRUD)
+- [x] Tributacao Autonoma para viaturas (combustao/hibrido/GPL/electrico)
+- [x] Pagamentos por Conta (PCC) — Art. 105.º CIRC
+- [x] Depreciacoes para imoveis ADQUIRIDOS (DR 25/2009)
+- [x] Tipo de imovel INDUSTRIAL (depreciacao 5%)
+- [x] Encargos nao dedutiveis (toggle dedutivel por rubrica)
+- [x] Simulador What-if com sliders (receita/custos)
+- [x] Bloqueio de quartos em imoveis nao-residenciais (INDUSTRIAL, LOJA, ESCRITORIO)
+- [x] Validacao TOC: retencoes IRS sobre rendas NAO deduzem IRC (Art. 101.º CIRS)
+
+## v1.4.1 — Self-healing JWT ✅ Released (2026-05-12)
+- [x] Revalidacao de token contra BD em cada request
+- [x] Invalidacao de tokens corrompidos/antigos (retorna null)
+- [x] TTL reduzido para 8h (em vez do default 30 dias)
+- [x] Deteccao de users desactivados/eliminados
+
+## v1.4.2 — Patch de Seguranca ✅ Released (2026-05-12)
+- [x] 13 vulnerabilidades patched (8 moderate + 5 high)
+- [x] Next 16.2.2 → 16.2.6
+- [x] axios, xmldom, fast-uri, fast-xml-parser actualizados
+
+## v1.4.3 — CLI Robusto + Documentacao ✅ Released (2026-05-12)
+- [x] scripts/imoveo-cli.sh versionado no repo (auto-install via update)
+- [x] imoveo doctor — diagnostico read-only (9 checks)
+- [x] imoveo reconcile — repara drift sem precisar de novo commit
+- [x] validate_current() — invariantes blue-green
+- [x] Deteccao + eliminacao de daemons pm2 paralelos
+- [x] Matar orphans na :3000 antes de pm2 start
+- [x] DIAGNOSTICO.md — runbook para problemas comuns
+
+## v1.5.0 — Fase B Fiscal 📋 Planned
+- [ ] B.1 Retencoes na fonte sofridas (registo manual, deduz IRC, Art. 90.º)
+- [ ] B.2 Mais-valias / menos-valias de alienacao de activos
+- [ ] B.3 Modelo 22 — exportacao dos quadros principais (07, 09, 10)
+- [ ] B.4 Validacoes pre-encerramento (checklist antes de fechar exercicio)
+
 ## v1.x.x — Optimizacao Docker e DevOps 📋 Planned
 - [ ] Criar .dockerignore (node_modules, .git, electron, .env — reduz contexto em 500MB+)
 - [ ] Remover node_modules completo do runner (standalone ja inclui deps, copiar so Prisma CLI)
@@ -81,7 +125,7 @@
 - [ ] Sudoers mais restritivo (scoped por comando)
 - [ ] Seguranca: pinned base image digest (node:20-alpine@sha256:...)
 
-## v1.3.0 — Electron Desktop 📋 Planned
+## v1.6.0 — Electron Desktop 📋 Planned
 - [ ] Electron wrapper com PostgreSQL embutido
 - [ ] Instalador Windows (.exe NSIS)
 - [ ] Instalador macOS (.dmg)
