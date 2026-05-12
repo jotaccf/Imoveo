@@ -22,6 +22,7 @@ import {
   ClipboardList,
   Bell,
   Car,
+  Activity,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -127,6 +128,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       key: 'analise',
       items: [
         { label: 'Analise Financeira', href: '/analise', icon: <TrendingUp size={16} />, permission: 'resultados:ver' },
+        { label: 'Evolucao', href: '/evolucao', icon: <Activity size={16} />, permission: 'resultados:ver' },
         { label: 'Custos Operacionais', href: '/custos', icon: <PieChart size={16} />, permission: 'resultados:ver' },
         { label: 'Previsao IRC', href: '/irc', icon: <Calculator size={16} />, permission: 'resultados:ver' },
         { label: 'Calculadora', href: '/calculadora', icon: <Calculator size={16} />, permission: 'resultados:ver' },
