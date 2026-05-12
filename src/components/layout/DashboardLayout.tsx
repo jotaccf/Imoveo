@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { VersionWatcher } from '@/components/VersionWatcher'
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
@@ -40,6 +41,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <VersionWatcher />
     </div>
   )
 }
