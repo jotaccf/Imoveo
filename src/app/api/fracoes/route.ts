@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Tipos de imovel que admitem quartos / fracoes
+const TIPOS_COM_QUARTOS = ['APARTAMENTO', 'MORADIA', 'OUTRO']
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
@@ -49,6 +52,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const parsed = createSchema.safeParse(body)
     if (!parsed.success) return Response.json({ error: 'Dados invalidos', message: parsed.error.message }, { status: 400 })
+
+    const imovel = await prisma.imovel.findUnique({ where: { id: parsed.data.imovelId } })
+    if (!imovel) return Response.json({ error: 'Imovel nao encontrado' }, { status: 404 })
+    if (!TIPOS_COM_QUARTOS.includes(imovel.tipo)) {
+      return Response.json({ error: `Imoveis do tipo ${imovel.tipo} nao admitem quartos / fracoes.` }, { status: 400 })
+    }
 
     const fracao = await prisma.fracao.create({ data: parsed.data })
     return Response.json({ data: fracao }, { status: 201 })

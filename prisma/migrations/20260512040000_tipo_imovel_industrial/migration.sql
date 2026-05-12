@@ -1,0 +1,2 @@
+-- AlterEnum TipoImovel — adicionar INDUSTRIAL
+ALTER TYPE "TipoImovel" ADD VALUE 'INDUSTRIAL' AFTER 'ESCRITORIO';

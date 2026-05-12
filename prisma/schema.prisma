@@ -18,6 +18,7 @@ enum TipoImovel {
   MORADIA
   LOJA
   ESCRITORIO
+  INDUSTRIAL
   OUTRO
   GERAL
   PESSOAL
@@ -131,6 +132,12 @@ model Imovel {
   incluirSubtracaoCaucao  Boolean  @default(false)
   plantaPath              String?
 
+  // Propriedade adquirida vs arrendada
+  tipoPropriedade        TipoPropriedade  @default(ARRENDADO)
+  valorAquisicao         Decimal?         @db.Decimal(12, 2)
+  dataAquisicao          DateTime?
+  taxaDepreciacaoAnual   Decimal?         @db.Decimal(5, 2) @default(2.00)
+
   nifMaps            NifImovelMap[]
   classificacoes     FaturaClassificacao[]
   lancamentos        LancamentoManual[]
@@ -149,20 +156,107 @@ model Configuracao {
   @@map("configuracoes")
 }
 
-// Configuracao fiscal por ano (CIRC, derrama, retencao, reporte prejuizos)
+// Configuracao fiscal por ano (CIRC, derrama, retencao, reporte prejuizos, tributacao autonoma)
 model ConfiguracaoFiscal {
   ano                 Int     @id
-  taxaIrcPme          Decimal @db.Decimal(5, 2) // ex: 17 ou 15 (%)
-  taxaIrcNormal       Decimal @db.Decimal(5, 2) // ex: 21 ou 19 (%)
-  limitePme           Decimal @db.Decimal(12, 2) // ex: 50000
-  derramaMunicipal    Decimal @db.Decimal(5, 2) // ex: 1.5 (%)
-  taxaRetencao        Decimal @db.Decimal(5, 2) // ex: 25 (%)
-  reportePrejuizoPct  Decimal @db.Decimal(5, 2) @default(65) // % do LT que pode deduzir prejuizos (Art. 52 CIRC)
+  taxaIrcPme          Decimal @db.Decimal(5, 2)
+  taxaIrcNormal       Decimal @db.Decimal(5, 2)
+  limitePme           Decimal @db.Decimal(12, 2)
+  derramaMunicipal    Decimal @db.Decimal(5, 2)
+  taxaRetencao        Decimal @db.Decimal(5, 2)
+  reportePrejuizoPct  Decimal @db.Decimal(5, 2) @default(65)
   regimePme           Boolean @default(true)
+
+  // Tributacao autonoma — viaturas combustao (diesel/gasolina)
+  taTaxaComBaixa      Decimal @db.Decimal(5, 2) @default(10)
+  taTaxaComMedia      Decimal @db.Decimal(5, 2) @default(27.5)
+  taTaxaComAlta       Decimal @db.Decimal(5, 2) @default(35)
+
+  // Tributacao autonoma — viaturas hibrido plug-in
+  taTaxaHibBaixa      Decimal @db.Decimal(5, 2) @default(5)
+  taTaxaHibMedia      Decimal @db.Decimal(5, 2) @default(10)
+  taTaxaHibAlta       Decimal @db.Decimal(5, 2) @default(17.5)
+
+  // Tributacao autonoma — viaturas GPL/GNV
+  taTaxaGplBaixa      Decimal @db.Decimal(5, 2) @default(7.5)
+  taTaxaGplMedia      Decimal @db.Decimal(5, 2) @default(15)
+  taTaxaGplAlta       Decimal @db.Decimal(5, 2) @default(27.5)
+
+  // Tributacao autonoma — viaturas electricas
+  taTaxaElectrica     Decimal @db.Decimal(5, 2) @default(10)
+  taLimiteElectricoIsento Decimal @db.Decimal(12, 2) @default(62500)
+
+  // Tiers viaturas (combustao/hibrido/GPL)
+  taLimiteViaturaBaixa Decimal @db.Decimal(12, 2) @default(27500)
+  taLimiteViaturaAlta  Decimal @db.Decimal(12, 2) @default(35000)
+
+  // Limites fiscais dedutibilidade (acima nao deduz)
+  limiteDeducaoCombustao  Decimal @db.Decimal(12, 2) @default(30000)
+  limiteDeducaoGpl        Decimal @db.Decimal(12, 2) @default(37500)
+  limiteDeducaoHibrido    Decimal @db.Decimal(12, 2) @default(50000)
+  limiteDeducaoElectrico  Decimal @db.Decimal(12, 2) @default(62500)
+
+  // Outras TA
+  taTaxaRepresentacao Decimal @db.Decimal(5, 2) @default(10)
+  taTaxaNaoDocumentadas Decimal @db.Decimal(5, 2) @default(50)
+  taAgravamentoPrejuizoPp Decimal @db.Decimal(5, 2) @default(10)
+
   criadoEm            DateTime @default(now())
   atualizadoEm        DateTime @updatedAt
 
   @@map("configuracoes_fiscais")
+}
+
+enum TipoPropriedade {
+  ARRENDADO
+  ADQUIRIDO
+}
+
+enum TipoActivoFixo {
+  VIATURA_LIGEIRA
+  VIATURA_PESADA
+  EQUIPAMENTO
+  OUTRO
+}
+
+enum TipoCombustivel {
+  COMBUSTAO
+  HIBRIDO_PLUG_IN
+  GPL_GNV
+  ELECTRICO
+}
+
+model ActivoFixo {
+  id                    String           @id @default(cuid())
+  nome                  String
+  tipo                  TipoActivoFixo
+  combustivel           TipoCombustivel?
+  matricula             String?
+  valorAquisicao        Decimal          @db.Decimal(12, 2)
+  dataAquisicao         DateTime
+  taxaDepreciacaoAnual  Decimal          @db.Decimal(5, 2) @default(25)
+  alienadoEm            DateTime?
+  valorAlienacao        Decimal?         @db.Decimal(12, 2)
+  notas                 String?
+  criadoEm              DateTime         @default(now())
+  atualizadoEm          DateTime         @updatedAt
+
+  @@index([tipo])
+  @@map("activos_fixos")
+}
+
+model PagamentoConta {
+  id          String   @id @default(cuid())
+  ano         Int
+  prestacao   Int      // 1, 2 ou 3
+  valor       Decimal  @db.Decimal(12, 2)
+  dataPagamento DateTime
+  notas       String?
+  criadoEm    DateTime @default(now())
+
+  @@unique([ano, prestacao])
+  @@index([ano])
+  @@map("pagamentos_conta")
 }
 
 enum EstadoFracao {
@@ -232,11 +326,12 @@ model NifImovelMap {
 }
 
 model Rubrica {
-  id     String      @id @default(cuid())
-  codigo String      @unique
-  nome   String
-  tipo   TipoRubrica @default(GASTO)
-  ordem  Int         @default(0)
+  id        String      @id @default(cuid())
+  codigo    String      @unique
+  nome      String
+  tipo      TipoRubrica @default(GASTO)
+  ordem     Int         @default(0)
+  dedutivel Boolean     @default(true)
 
   nifMaps               NifImovelMap[]
   classificacoes        FaturaClassificacao[]

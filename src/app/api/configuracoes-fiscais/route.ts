@@ -13,6 +13,27 @@ const upsertSchema = z.object({
   taxaRetencao: z.number().min(0).max(100),
   reportePrejuizoPct: z.number().min(0).max(100).optional(),
   regimePme: z.boolean().optional(),
+  // Tributacao Autonoma — taxas
+  taTaxaComBaixa: z.number().min(0).max(100).optional(),
+  taTaxaComMedia: z.number().min(0).max(100).optional(),
+  taTaxaComAlta: z.number().min(0).max(100).optional(),
+  taTaxaHibBaixa: z.number().min(0).max(100).optional(),
+  taTaxaHibMedia: z.number().min(0).max(100).optional(),
+  taTaxaHibAlta: z.number().min(0).max(100).optional(),
+  taTaxaGplBaixa: z.number().min(0).max(100).optional(),
+  taTaxaGplMedia: z.number().min(0).max(100).optional(),
+  taTaxaGplAlta: z.number().min(0).max(100).optional(),
+  taTaxaElectrica: z.number().min(0).max(100).optional(),
+  taLimiteElectricoIsento: z.number().min(0).optional(),
+  taLimiteViaturaBaixa: z.number().min(0).optional(),
+  taLimiteViaturaAlta: z.number().min(0).optional(),
+  limiteDeducaoCombustao: z.number().min(0).optional(),
+  limiteDeducaoGpl: z.number().min(0).optional(),
+  limiteDeducaoHibrido: z.number().min(0).optional(),
+  limiteDeducaoElectrico: z.number().min(0).optional(),
+  taTaxaRepresentacao: z.number().min(0).max(100).optional(),
+  taTaxaNaoDocumentadas: z.number().min(0).max(100).optional(),
+  taAgravamentoPrejuizoPp: z.number().min(0).max(100).optional(),
 })
 
 export async function GET() {

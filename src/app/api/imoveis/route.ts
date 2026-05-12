@@ -7,7 +7,7 @@ import { z } from 'zod'
 const createSchema = z.object({
   codigo: z.string().min(1),
   nome: z.string().min(1),
-  tipo: z.enum(['APARTAMENTO', 'MORADIA', 'LOJA', 'ESCRITORIO', 'OUTRO', 'GERAL', 'PESSOAL']),
+  tipo: z.enum(['APARTAMENTO', 'MORADIA', 'LOJA', 'ESCRITORIO', 'INDUSTRIAL', 'OUTRO', 'GERAL', 'PESSOAL']),
   morada: z.string().optional(),
   localizacao: z.string().min(1),
   nifProprietario: z.string().optional(),
@@ -39,6 +39,11 @@ const createSchema = z.object({
   // Numeric fields passed as strings
   valorPatrimonial: z.string().optional(),
   areaMt2: z.string().optional(),
+  // Tipo propriedade + depreciacao
+  tipoPropriedade: z.enum(['ARRENDADO', 'ADQUIRIDO']).optional(),
+  valorAquisicao: z.string().optional(),
+  dataAquisicao: z.string().optional(),
+  taxaDepreciacaoAnual: z.string().optional(),
 })
 
 export async function GET() {
@@ -73,12 +78,15 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.imovel.findUnique({ where: { codigo: parsed.data.codigo } })
     if (existing) return Response.json({ error: 'Imovel com este codigo ja existe' }, { status: 409 })
 
-    const { valorPatrimonial, areaMt2, dataContratoArrendamento, ...rest } = parsed.data
+    const { valorPatrimonial, areaMt2, dataContratoArrendamento, valorAquisicao, dataAquisicao, taxaDepreciacaoAnual, ...rest } = parsed.data
     // Convert string fields to proper types
     const createData: Record<string, unknown> = { ...rest }
     if (valorPatrimonial) createData.valorPatrimonial = Number(valorPatrimonial)
     if (areaMt2) createData.areaMt2 = Number(areaMt2)
     if (dataContratoArrendamento) createData.dataContratoArrendamento = new Date(dataContratoArrendamento)
+    if (valorAquisicao) createData.valorAquisicao = Number(valorAquisicao)
+    if (dataAquisicao) createData.dataAquisicao = new Date(dataAquisicao)
+    if (taxaDepreciacaoAnual) createData.taxaDepreciacaoAnual = Number(taxaDepreciacaoAnual)
     // Nullify empty optional strings
     const optionalStrings = ['morada', 'nifProprietario', 'fracaoAutonoma', 'andar', 'freguesia', 'concelho', 'artigoMatricial', 'descricaoRP', 'licencaUtilizacao', 'dataLicenca', 'entidadeLicenca', 'nomeProprietario1', 'ccProprietario1', 'nomeProprietario2', 'nifProprietario2', 'ccProprietario2', 'regimeCasamento', 'moradaProprietarios', 'equipamentos'] as const
     for (const key of optionalStrings) {

@@ -1,4 +1,11 @@
 import { prisma } from '@/lib/prisma'
+import {
+  depreciacaoImovelDefault,
+  depreciacaoFiscalViatura,
+  taxaTaPorViatura,
+  tierViaturaPorValor,
+  type TaConfig,
+} from '@/lib/depreciacao'
 
 // ---------- helpers ----------
 
@@ -107,17 +114,64 @@ export interface GlobalAnalise {
   ratiCobertura: number
 }
 
+export interface DepreciacaoLinha {
+  origem: 'IMOVEL' | 'ACTIVO'
+  id: string
+  nome: string
+  tipo: string
+  valorAquisicao: number
+  taxa: number
+  depreciacaoContabil: number
+  depreciacaoAceite: number
+  acrescimo: number
+  combustivel?: string | null
+}
+
+export interface TaLinha {
+  activoId: string
+  nome: string
+  combustivel: string
+  valorAquisicao: number
+  tier: string
+  taxa: number
+  base: number
+  valor: number
+}
+
+export interface EncargoNaoDedutivelLinha {
+  rubricaId: string
+  rubricaCodigo: string
+  rubricaNome: string
+  valor: number
+}
+
 export interface IrcAnalise {
   resultadoAntesImpostos: number
+  resultadoAposCorreccoes: number
+  acrescimoDepreciacoes: number
+  acrescimoEncargosNaoDedutiveis: number
+  encargosNaoDedutiveis: EncargoNaoDedutivelLinha[]
   materiaColetavel: number
   coleta: number
   derrama: number
   ircTotal: number
   taxaEfetiva: number
-  retencoesFeitasTotal: number
+  // Retencoes IRS feitas aos senhorios — substituto tributario (art. 101.º CIRS).
+  // NAO deduz ao IRC; apenas obrigacao fiscal de entrega.
+  retencoesEntreguesTotal: number
+  // Retencoes na fonte SOFRIDAS pela empresa (art. 90.º n.º 2 al. e) CIRC).
+  // Esta sim deduz ao IRC liquidado. Default 0 ate haver registo manual.
+  retencoesSofridasTotal: number
   prejuizoDisponivel?: number
   deducaoPrejuizos?: number
   prejuizoRestante?: number
+  depreciacoes: DepreciacaoLinha[]
+  depreciacoesTotal: number
+  tributacaoAutonoma: TaLinha[]
+  tributacaoAutonomaTotal: number
+  pagamentosConta: { ano: number; prestacao: number; valor: number; dataPagamento: Date }[]
+  pagamentosContaTotal: number
+  ircAPagar: number
 }
 
 export interface ConfigAnalise {
@@ -448,10 +502,174 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
     ratiCobertura: rendaPagaTotal !== 0 ? receitaTotal / rendaPagaTotal : 0,
   }
 
+  // ---------- Depreciacoes + Tributacao Autonoma + PCC ----------
+
+  const taCfg: TaConfig = configFiscalMaisProxima ? {
+    taTaxaComBaixa: Number(configFiscalMaisProxima.taTaxaComBaixa),
+    taTaxaComMedia: Number(configFiscalMaisProxima.taTaxaComMedia),
+    taTaxaComAlta: Number(configFiscalMaisProxima.taTaxaComAlta),
+    taTaxaHibBaixa: Number(configFiscalMaisProxima.taTaxaHibBaixa),
+    taTaxaHibMedia: Number(configFiscalMaisProxima.taTaxaHibMedia),
+    taTaxaHibAlta: Number(configFiscalMaisProxima.taTaxaHibAlta),
+    taTaxaGplBaixa: Number(configFiscalMaisProxima.taTaxaGplBaixa),
+    taTaxaGplMedia: Number(configFiscalMaisProxima.taTaxaGplMedia),
+    taTaxaGplAlta: Number(configFiscalMaisProxima.taTaxaGplAlta),
+    taTaxaElectrica: Number(configFiscalMaisProxima.taTaxaElectrica),
+    taLimiteElectricoIsento: Number(configFiscalMaisProxima.taLimiteElectricoIsento),
+    taLimiteViaturaBaixa: Number(configFiscalMaisProxima.taLimiteViaturaBaixa),
+    taLimiteViaturaAlta: Number(configFiscalMaisProxima.taLimiteViaturaAlta),
+    limiteDeducaoCombustao: Number(configFiscalMaisProxima.limiteDeducaoCombustao),
+    limiteDeducaoGpl: Number(configFiscalMaisProxima.limiteDeducaoGpl),
+    limiteDeducaoHibrido: Number(configFiscalMaisProxima.limiteDeducaoHibrido),
+    limiteDeducaoElectrico: Number(configFiscalMaisProxima.limiteDeducaoElectrico),
+  } : {
+    taTaxaComBaixa: 10, taTaxaComMedia: 27.5, taTaxaComAlta: 35,
+    taTaxaHibBaixa: 5, taTaxaHibMedia: 10, taTaxaHibAlta: 17.5,
+    taTaxaGplBaixa: 7.5, taTaxaGplMedia: 15, taTaxaGplAlta: 27.5,
+    taTaxaElectrica: 10,
+    taLimiteElectricoIsento: 62500,
+    taLimiteViaturaBaixa: 27500, taLimiteViaturaAlta: 35000,
+    limiteDeducaoCombustao: 30000, limiteDeducaoGpl: 37500,
+    limiteDeducaoHibrido: 50000, limiteDeducaoElectrico: 62500,
+  }
+
+  // Depreciacoes de imoveis ADQUIRIDOS
+  const depreciacoes: DepreciacaoLinha[] = []
+  for (const im of imoveisDb) {
+    if (im.tipoPropriedade !== 'ADQUIRIDO') continue
+    if (!im.valorAquisicao || !im.dataAquisicao) continue
+    const valor = toNum(im.valorAquisicao)
+    const taxaDb = im.taxaDepreciacaoAnual ? Number(im.taxaDepreciacaoAnual) : null
+    const taxa = taxaDb ?? depreciacaoImovelDefault(im.tipo)
+    const dep = valor * (taxa / 100)
+    // Pro-rata se aquisicao no proprio ano
+    const dataAq = new Date(im.dataAquisicao)
+    let depAno = dep
+    if (dataAq.getFullYear() === ano) {
+      const mesesRestantes = 12 - dataAq.getMonth()
+      depAno = dep * (mesesRestantes / 12)
+    } else if (dataAq.getFullYear() > ano) {
+      continue
+    }
+    depreciacoes.push({
+      origem: 'IMOVEL',
+      id: im.id,
+      nome: `${im.codigo} — ${im.nome}`,
+      tipo: im.tipo,
+      valorAquisicao: valor,
+      taxa,
+      depreciacaoContabil: depAno,
+      depreciacaoAceite: depAno,
+      acrescimo: 0,
+    })
+  }
+
+  // Depreciacoes de activos fixos + Tributacao Autonoma sobre viaturas
+  const activos = await prisma.activoFixo.findMany()
+  const tributacaoAutonoma: TaLinha[] = []
+  for (const ac of activos) {
+    const dataAq = new Date(ac.dataAquisicao)
+    if (dataAq.getFullYear() > ano) continue
+    // Alienado em ano anterior — sem depreciacao
+    if (ac.alienadoEm && new Date(ac.alienadoEm).getFullYear() < ano) continue
+    const valor = toNum(ac.valorAquisicao)
+    const taxa = Number(ac.taxaDepreciacaoAnual)
+    const isViatura = ac.tipo === 'VIATURA_LIGEIRA' || ac.tipo === 'VIATURA_PESADA'
+    const combustivel = ac.combustivel ?? 'COMBUSTAO'
+
+    let depContabil: number, depAceite: number, acrescimo: number
+    if (isViatura) {
+      const r = depreciacaoFiscalViatura(valor, taxa, combustivel, taCfg)
+      depContabil = r.depreciacaoContabil
+      depAceite = r.depreciacaoAceite
+      acrescimo = r.acrescimo
+    } else {
+      depContabil = valor * (taxa / 100)
+      depAceite = depContabil
+      acrescimo = 0
+    }
+    // Pro-rata aquisicao
+    if (dataAq.getFullYear() === ano) {
+      const mesesRestantes = 12 - dataAq.getMonth()
+      const factor = mesesRestantes / 12
+      depContabil *= factor
+      depAceite *= factor
+      acrescimo *= factor
+    }
+
+    depreciacoes.push({
+      origem: 'ACTIVO',
+      id: ac.id,
+      nome: ac.nome,
+      tipo: ac.tipo,
+      valorAquisicao: valor,
+      taxa,
+      depreciacaoContabil: depContabil,
+      depreciacaoAceite: depAceite,
+      acrescimo,
+      combustivel: ac.combustivel,
+    })
+
+    // Tributacao autonoma — incide sobre os encargos com a viatura (depreciacao contabil aceite como proxy)
+    if (isViatura) {
+      const taxaTa = taxaTaPorViatura(valor, combustivel, taCfg)
+      const tier = tierViaturaPorValor(valor, combustivel, taCfg)
+      const base = depAceite // proxy de encargos anuais
+      const valorTa = base * (taxaTa / 100)
+      tributacaoAutonoma.push({
+        activoId: ac.id,
+        nome: ac.nome,
+        combustivel,
+        valorAquisicao: valor,
+        tier,
+        taxa: taxaTa,
+        base,
+        valor: valorTa,
+      })
+    }
+  }
+
+  const depreciacoesTotal = depreciacoes.reduce((s, d) => s + d.depreciacaoAceite, 0)
+  const acrescimoDepreciacoes = depreciacoes.reduce((s, d) => s + d.acrescimo, 0)
+  const tributacaoAutonomaTotal = tributacaoAutonoma.reduce((s, t) => s + t.valor, 0)
+
+  // Encargos nao dedutiveis (multas, IRC, donativos, ofertas excessivas, etc.)
+  // Apenas custos do proprio ano contam — exclui receita e renda paga (RDA).
+  const encargosMap = new Map<string, EncargoNaoDedutivelLinha>()
+  for (const fc of faturaClassificacoes) {
+    const rub = rubricaMap.get(fc.rubricaId)
+    if (!rub) continue
+    if (rub.tipo === 'RECEITA' || rub.dedutivel) continue
+    if (fc.rubricaId === rdaRubricaId) continue
+    const dataF = new Date(fc.fatura.dataFatura)
+    if (dataF.getFullYear() !== ano) continue
+    const valor = fc.valorAtribuido ? toNum(fc.valorAtribuido) : toNum(fc.fatura.totalComIva)
+    const prev = encargosMap.get(fc.rubricaId)
+    if (prev) prev.valor += valor
+    else encargosMap.set(fc.rubricaId, { rubricaId: rub.id, rubricaCodigo: rub.codigo, rubricaNome: rub.nome, valor })
+  }
+  for (const lm of lancamentos) {
+    const rub = rubricaMap.get(lm.rubricaId)
+    if (!rub) continue
+    if (rub.tipo === 'RECEITA' || rub.dedutivel) continue
+    if (lm.rubricaId === rdaRubricaId) continue
+    const dataL = new Date(lm.dataDoc)
+    if (dataL.getFullYear() !== ano) continue
+    const valor = toNum(lm.totalComIva)
+    const prev = encargosMap.get(lm.rubricaId)
+    if (prev) prev.valor += valor
+    else encargosMap.set(lm.rubricaId, { rubricaId: rub.id, rubricaCodigo: rub.codigo, rubricaNome: rub.nome, valor })
+  }
+  const encargosNaoDedutiveis = Array.from(encargosMap.values()).sort((a, b) => b.valor - a.valor)
+  const acrescimoEncargosNaoDedutiveis = encargosNaoDedutiveis.reduce((s, e) => s + e.valor, 0)
+
+  // Resultado apos correccoes: subtrai depreciacoes (custo), soma acrescimos (limites fiscais + nao dedutiveis)
+  const resultadoAposCorreccoes = resultadoLiquidoGlobal - depreciacoesTotal + acrescimoDepreciacoes + acrescimoEncargosNaoDedutiveis
+
   // ---------- IRC estimate ----------
 
   const ircCalc = calcIrc(
-    resultadoLiquidoGlobal,
+    resultadoAposCorreccoes,
     derramaMunicipal,
     regimePme,
     taxaIrcPme,
@@ -461,19 +679,53 @@ export async function loadAnaliseData(ano: number): Promise<AnaliseData> {
     reportePrejuizoPct,
   )
 
-  const retencoesFeitasTotal = rendaPagaTotal * (taxaRetencao / 100)
+  // IRS retido aos senhorios e entregue a AT (substituto tributario — NAO deduz IRC)
+  const retencoesEntreguesTotal = rendaPagaTotal * (taxaRetencao / 100)
+  // Retencoes sofridas pela empresa (juros bancarios, servicos a outras empresas) — DEDUZ IRC
+  // TODO: criar tabela RetencaoSofrida para registo manual; por agora default 0.
+  const retencoesSofridasTotal = 0
+
+  // Pagamentos por conta do ano
+  const pagamentosContaDb = await prisma.pagamentoConta.findMany({
+    where: { ano },
+    orderBy: { prestacao: 'asc' },
+  })
+  const pagamentosConta = pagamentosContaDb.map((p) => ({
+    ano: p.ano,
+    prestacao: p.prestacao,
+    valor: toNum(p.valor),
+    dataPagamento: p.dataPagamento,
+  }))
+  const pagamentosContaTotal = pagamentosConta.reduce((s, p) => s + p.valor, 0)
+
+  const ircComTa = ircCalc.ircTotal + tributacaoAutonomaTotal
+  // IRC a pagar: deduz APENAS retencoes sofridas pela empresa + PCC.
+  // As retencoes IRS dos senhorios sao obrigacao de entrega, nao deducao ao IRC.
+  const ircAPagar = ircComTa - retencoesSofridasTotal - pagamentosContaTotal
 
   const irc: IrcAnalise = {
     resultadoAntesImpostos: resultadoLiquidoGlobal,
+    resultadoAposCorreccoes,
+    acrescimoDepreciacoes,
+    acrescimoEncargosNaoDedutiveis,
+    encargosNaoDedutiveis,
     materiaColetavel: ircCalc.mc,
     coleta: ircCalc.coleta,
     derrama: ircCalc.derrama,
-    ircTotal: ircCalc.ircTotal,
-    taxaEfetiva: ircCalc.taxaEfetiva,
-    retencoesFeitasTotal,
+    ircTotal: ircComTa,
+    taxaEfetiva: pct(ircComTa, resultadoLiquidoGlobal),
+    retencoesEntreguesTotal,
+    retencoesSofridasTotal,
     prejuizoDisponivel: ircCalc.prejuizoDisponivel,
     deducaoPrejuizos: ircCalc.deducaoPrejuizos,
     prejuizoRestante: ircCalc.prejuizoRestante,
+    depreciacoes,
+    depreciacoesTotal,
+    tributacaoAutonoma,
+    tributacaoAutonomaTotal,
+    pagamentosConta,
+    pagamentosContaTotal,
+    ircAPagar,
   }
 
   // ---------- Monthly evolution ----------

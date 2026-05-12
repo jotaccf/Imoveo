@@ -374,6 +374,11 @@ export default function ConfiguracoesPage() {
       <CollapsibleSection title="Configuracoes Fiscais" subtitle="Taxas de IRC, derrama, retencao e reporte de prejuizos por ano fiscal" defaultOpen={true}>
         <ConfigFiscaisAno />
       </CollapsibleSection>
+
+      {/* Rubricas e dedutibilidade fiscal */}
+      <CollapsibleSection title="Rubricas — dedutibilidade fiscal" subtitle="Marca quais rubricas sao acrescidas ao lucro tributavel (multas, IRC, donativos, ofertas excessivas, etc.)">
+        <RubricasDedutibilidade />
+      </CollapsibleSection>
     </div>
   )
 }
@@ -391,6 +396,17 @@ interface ConfigFiscal {
   taxaRetencao: string
   reportePrejuizoPct: string
   regimePme: boolean
+  // TA
+  taTaxaComBaixa?: string; taTaxaComMedia?: string; taTaxaComAlta?: string
+  taTaxaHibBaixa?: string; taTaxaHibMedia?: string; taTaxaHibAlta?: string
+  taTaxaGplBaixa?: string; taTaxaGplMedia?: string; taTaxaGplAlta?: string
+  taTaxaElectrica?: string
+  taLimiteElectricoIsento?: string
+  taLimiteViaturaBaixa?: string; taLimiteViaturaAlta?: string
+  limiteDeducaoCombustao?: string; limiteDeducaoGpl?: string
+  limiteDeducaoHibrido?: string; limiteDeducaoElectrico?: string
+  taTaxaRepresentacao?: string; taTaxaNaoDocumentadas?: string
+  taAgravamentoPrejuizoPp?: string
 }
 
 const emptyFiscalForm = {
@@ -402,6 +418,17 @@ const emptyFiscalForm = {
   taxaRetencao: 25,
   reportePrejuizoPct: 65,
   regimePme: true,
+  // Tributacao Autonoma — defaults OE 2026
+  taTaxaComBaixa: 10, taTaxaComMedia: 27.5, taTaxaComAlta: 35,
+  taTaxaHibBaixa: 5, taTaxaHibMedia: 10, taTaxaHibAlta: 17.5,
+  taTaxaGplBaixa: 7.5, taTaxaGplMedia: 15, taTaxaGplAlta: 27.5,
+  taTaxaElectrica: 10,
+  taLimiteElectricoIsento: 62500,
+  taLimiteViaturaBaixa: 27500, taLimiteViaturaAlta: 35000,
+  limiteDeducaoCombustao: 30000, limiteDeducaoGpl: 37500,
+  limiteDeducaoHibrido: 50000, limiteDeducaoElectrico: 62500,
+  taTaxaRepresentacao: 10, taTaxaNaoDocumentadas: 50,
+  taAgravamentoPrejuizoPp: 10,
 }
 
 function ConfigFiscaisAno() {
@@ -423,34 +450,51 @@ function ConfigFiscaisAno() {
 
   useEffect(() => { fetchConfigs() }, [])
 
+  function configToForm(c: ConfigFiscal | null): typeof emptyFiscalForm {
+    const n = (v: string | undefined, fallback: number) => v !== undefined ? Number(v) : fallback
+    return {
+      ano: c?.ano ?? new Date().getFullYear(),
+      taxaIrcPme: c ? Number(c.taxaIrcPme) : emptyFiscalForm.taxaIrcPme,
+      taxaIrcNormal: c ? Number(c.taxaIrcNormal) : emptyFiscalForm.taxaIrcNormal,
+      limitePme: c ? Number(c.limitePme) : emptyFiscalForm.limitePme,
+      derramaMunicipal: c ? Number(c.derramaMunicipal) : emptyFiscalForm.derramaMunicipal,
+      taxaRetencao: c ? Number(c.taxaRetencao) : emptyFiscalForm.taxaRetencao,
+      reportePrejuizoPct: c ? Number(c.reportePrejuizoPct) : emptyFiscalForm.reportePrejuizoPct,
+      regimePme: c ? c.regimePme : emptyFiscalForm.regimePme,
+      taTaxaComBaixa: n(c?.taTaxaComBaixa, emptyFiscalForm.taTaxaComBaixa),
+      taTaxaComMedia: n(c?.taTaxaComMedia, emptyFiscalForm.taTaxaComMedia),
+      taTaxaComAlta: n(c?.taTaxaComAlta, emptyFiscalForm.taTaxaComAlta),
+      taTaxaHibBaixa: n(c?.taTaxaHibBaixa, emptyFiscalForm.taTaxaHibBaixa),
+      taTaxaHibMedia: n(c?.taTaxaHibMedia, emptyFiscalForm.taTaxaHibMedia),
+      taTaxaHibAlta: n(c?.taTaxaHibAlta, emptyFiscalForm.taTaxaHibAlta),
+      taTaxaGplBaixa: n(c?.taTaxaGplBaixa, emptyFiscalForm.taTaxaGplBaixa),
+      taTaxaGplMedia: n(c?.taTaxaGplMedia, emptyFiscalForm.taTaxaGplMedia),
+      taTaxaGplAlta: n(c?.taTaxaGplAlta, emptyFiscalForm.taTaxaGplAlta),
+      taTaxaElectrica: n(c?.taTaxaElectrica, emptyFiscalForm.taTaxaElectrica),
+      taLimiteElectricoIsento: n(c?.taLimiteElectricoIsento, emptyFiscalForm.taLimiteElectricoIsento),
+      taLimiteViaturaBaixa: n(c?.taLimiteViaturaBaixa, emptyFiscalForm.taLimiteViaturaBaixa),
+      taLimiteViaturaAlta: n(c?.taLimiteViaturaAlta, emptyFiscalForm.taLimiteViaturaAlta),
+      limiteDeducaoCombustao: n(c?.limiteDeducaoCombustao, emptyFiscalForm.limiteDeducaoCombustao),
+      limiteDeducaoGpl: n(c?.limiteDeducaoGpl, emptyFiscalForm.limiteDeducaoGpl),
+      limiteDeducaoHibrido: n(c?.limiteDeducaoHibrido, emptyFiscalForm.limiteDeducaoHibrido),
+      limiteDeducaoElectrico: n(c?.limiteDeducaoElectrico, emptyFiscalForm.limiteDeducaoElectrico),
+      taTaxaRepresentacao: n(c?.taTaxaRepresentacao, emptyFiscalForm.taTaxaRepresentacao),
+      taTaxaNaoDocumentadas: n(c?.taTaxaNaoDocumentadas, emptyFiscalForm.taTaxaNaoDocumentadas),
+      taAgravamentoPrejuizoPp: n(c?.taAgravamentoPrejuizoPp, emptyFiscalForm.taAgravamentoPrejuizoPp),
+    }
+  }
+
   function startEdit(c: ConfigFiscal) {
-    setForm({
-      ano: c.ano,
-      taxaIrcPme: Number(c.taxaIrcPme),
-      taxaIrcNormal: Number(c.taxaIrcNormal),
-      limitePme: Number(c.limitePme),
-      derramaMunicipal: Number(c.derramaMunicipal),
-      taxaRetencao: Number(c.taxaRetencao),
-      reportePrejuizoPct: Number(c.reportePrejuizoPct),
-      regimePme: c.regimePme,
-    })
+    setForm(configToForm(c))
     setEditingAno(c.ano)
     setCreating(false)
   }
 
   function startCreate() {
-    const ultimoAno = configs[0]?.ano ?? new Date().getFullYear()
     const ultimaConfig = configs[0]
-    setForm({
-      ano: ultimoAno + 1,
-      taxaIrcPme: ultimaConfig ? Number(ultimaConfig.taxaIrcPme) : 15,
-      taxaIrcNormal: ultimaConfig ? Number(ultimaConfig.taxaIrcNormal) : 19,
-      limitePme: ultimaConfig ? Number(ultimaConfig.limitePme) : 50000,
-      derramaMunicipal: ultimaConfig ? Number(ultimaConfig.derramaMunicipal) : 1.5,
-      taxaRetencao: ultimaConfig ? Number(ultimaConfig.taxaRetencao) : 25,
-      reportePrejuizoPct: ultimaConfig ? Number(ultimaConfig.reportePrejuizoPct) : 65,
-      regimePme: ultimaConfig ? ultimaConfig.regimePme : true,
-    })
+    const base = configToForm(ultimaConfig ?? null)
+    base.ano = (ultimaConfig?.ano ?? new Date().getFullYear()) + 1
+    setForm(base)
     setCreating(true)
     setEditingAno(null)
   }
@@ -537,6 +581,41 @@ function ConfigFiscaisAno() {
               <span className="text-sm">Regime PME</span>
             </label>
           </div>
+
+          <h4 className="text-xs font-semibold mt-5 mb-2 uppercase tracking-wide text-gray-600">Tributacao Autonoma (viaturas)</h4>
+          <p className="text-[11px] text-gray-500 mb-2">Tier por valor de aquisicao: Baixa &lt; {form.taLimiteViaturaBaixa.toLocaleString('pt-PT')} | Media &lt; {form.taLimiteViaturaAlta.toLocaleString('pt-PT')} | Alta &ge; {form.taLimiteViaturaAlta.toLocaleString('pt-PT')}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <Input label="Combustao Baixa %" type="number" step="0.01" value={form.taTaxaComBaixa} onChange={(e) => setForm({ ...form, taTaxaComBaixa: parseFloat(e.target.value) || 0 })} />
+            <Input label="Combustao Media %" type="number" step="0.01" value={form.taTaxaComMedia} onChange={(e) => setForm({ ...form, taTaxaComMedia: parseFloat(e.target.value) || 0 })} />
+            <Input label="Combustao Alta %" type="number" step="0.01" value={form.taTaxaComAlta} onChange={(e) => setForm({ ...form, taTaxaComAlta: parseFloat(e.target.value) || 0 })} />
+            <Input label="Hibrido PI Baixa %" type="number" step="0.01" value={form.taTaxaHibBaixa} onChange={(e) => setForm({ ...form, taTaxaHibBaixa: parseFloat(e.target.value) || 0 })} />
+            <Input label="Hibrido PI Media %" type="number" step="0.01" value={form.taTaxaHibMedia} onChange={(e) => setForm({ ...form, taTaxaHibMedia: parseFloat(e.target.value) || 0 })} />
+            <Input label="Hibrido PI Alta %" type="number" step="0.01" value={form.taTaxaHibAlta} onChange={(e) => setForm({ ...form, taTaxaHibAlta: parseFloat(e.target.value) || 0 })} />
+            <Input label="GPL/GNV Baixa %" type="number" step="0.01" value={form.taTaxaGplBaixa} onChange={(e) => setForm({ ...form, taTaxaGplBaixa: parseFloat(e.target.value) || 0 })} />
+            <Input label="GPL/GNV Media %" type="number" step="0.01" value={form.taTaxaGplMedia} onChange={(e) => setForm({ ...form, taTaxaGplMedia: parseFloat(e.target.value) || 0 })} />
+            <Input label="GPL/GNV Alta %" type="number" step="0.01" value={form.taTaxaGplAlta} onChange={(e) => setForm({ ...form, taTaxaGplAlta: parseFloat(e.target.value) || 0 })} />
+            <Input label="Electrico (acima isento) %" type="number" step="0.01" value={form.taTaxaElectrica} onChange={(e) => setForm({ ...form, taTaxaElectrica: parseFloat(e.target.value) || 0 })} />
+            <Input label="Limite Electrico Isento €" type="number" step="100" value={form.taLimiteElectricoIsento} onChange={(e) => setForm({ ...form, taLimiteElectricoIsento: parseFloat(e.target.value) || 0 })} />
+            <div />
+            <Input label="Tier Baixa < €" type="number" step="100" value={form.taLimiteViaturaBaixa} onChange={(e) => setForm({ ...form, taLimiteViaturaBaixa: parseFloat(e.target.value) || 0 })} />
+            <Input label="Tier Alta >= €" type="number" step="100" value={form.taLimiteViaturaAlta} onChange={(e) => setForm({ ...form, taLimiteViaturaAlta: parseFloat(e.target.value) || 0 })} />
+          </div>
+
+          <h4 className="text-xs font-semibold mt-5 mb-2 uppercase tracking-wide text-gray-600">Limites de dedutibilidade (art. 34.º CIRC)</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <Input label="Combustao €" type="number" step="100" value={form.limiteDeducaoCombustao} onChange={(e) => setForm({ ...form, limiteDeducaoCombustao: parseFloat(e.target.value) || 0 })} />
+            <Input label="GPL/GNV €" type="number" step="100" value={form.limiteDeducaoGpl} onChange={(e) => setForm({ ...form, limiteDeducaoGpl: parseFloat(e.target.value) || 0 })} />
+            <Input label="Hibrido €" type="number" step="100" value={form.limiteDeducaoHibrido} onChange={(e) => setForm({ ...form, limiteDeducaoHibrido: parseFloat(e.target.value) || 0 })} />
+            <Input label="Electrico €" type="number" step="100" value={form.limiteDeducaoElectrico} onChange={(e) => setForm({ ...form, limiteDeducaoElectrico: parseFloat(e.target.value) || 0 })} />
+          </div>
+
+          <h4 className="text-xs font-semibold mt-5 mb-2 uppercase tracking-wide text-gray-600">Outras tributacoes autonomas</h4>
+          <div className="grid grid-cols-3 gap-2">
+            <Input label="Representacao %" type="number" step="0.01" value={form.taTaxaRepresentacao} onChange={(e) => setForm({ ...form, taTaxaRepresentacao: parseFloat(e.target.value) || 0 })} />
+            <Input label="Nao documentadas %" type="number" step="0.01" value={form.taTaxaNaoDocumentadas} onChange={(e) => setForm({ ...form, taTaxaNaoDocumentadas: parseFloat(e.target.value) || 0 })} />
+            <Input label="Agravamento prejuizo %" type="number" step="0.01" value={form.taAgravamentoPrejuizoPp} onChange={(e) => setForm({ ...form, taAgravamentoPrejuizoPp: parseFloat(e.target.value) || 0 })} />
+          </div>
+
           <div className="mt-4 flex gap-2">
             <Button onClick={handleSave} disabled={saving}>{saving ? 'A guardar...' : 'Guardar'}</Button>
             <Button variant="ghost" onClick={() => { setEditingAno(null); setCreating(false) }}>Cancelar</Button>
@@ -548,6 +627,98 @@ function ConfigFiscaisAno() {
         As taxas aplicam-se ao ano correspondente. Se um ano nao tiver configuracao, e usado o ano anterior mais proximo.
         Reporte de Prejuizos: percentagem maxima do lucro tributavel que pode ser deduzida por prejuizos de anos anteriores (Art. 52.º CIRC, default 65%).
       </p>
+    </div>
+  )
+}
+
+// ============================================================
+//  Rubricas — dedutibilidade fiscal
+// ============================================================
+
+interface Rubrica {
+  id: string
+  codigo: string
+  nome: string
+  tipo: 'RECEITA' | 'GASTO'
+  dedutivel: boolean
+}
+
+function RubricasDedutibilidade() {
+  const [rubricas, setRubricas] = useState<Rubrica[]>([])
+  const [loading, setLoading] = useState(true)
+
+  function fetchRubricas() {
+    setLoading(true)
+    fetch('/api/rubricas')
+      .then((r) => r.json())
+      .then((j) => { if (j.data) setRubricas(j.data) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { fetchRubricas() }, [])
+
+  async function toggleDedutivel(r: Rubrica) {
+    // Optimistic update
+    setRubricas((prev) => prev.map((x) => x.id === r.id ? { ...x, dedutivel: !x.dedutivel } : x))
+    const res = await fetch(`/api/rubricas/${r.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dedutivel: !r.dedutivel }),
+    })
+    if (!res.ok) fetchRubricas()
+  }
+
+  if (loading) return <div className="text-sm text-gray-400">A carregar...</div>
+
+  const gastos = rubricas.filter((r) => r.tipo === 'GASTO')
+  const naoDedutiveis = gastos.filter((r) => !r.dedutivel)
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[12px] text-gray-500">
+        Rubricas marcadas como <span className="font-medium text-[#A32D2D]">nao dedutiveis</span> sao automaticamente acrescidas ao lucro tributavel no calculo do IRC.
+        Exemplos tipicos: multas, IRC pago, donativos, ofertas excessivas.
+      </p>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-[11px] uppercase" style={{ color: '#6B7280' }}>
+            <tr className="border-b border-gray-100">
+              <th className="text-left py-2 px-3">Codigo</th>
+              <th className="text-left py-2 px-3">Nome</th>
+              <th className="text-center py-2 px-3">Dedutivel</th>
+            </tr>
+          </thead>
+          <tbody>
+            {gastos.map((r) => (
+              <tr key={r.id} className="border-b border-gray-50">
+                <td className="py-2 px-3 font-mono text-[11px]">{r.codigo}</td>
+                <td className="py-2 px-3">{r.nome}</td>
+                <td className="py-2 px-3 text-center">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={r.dedutivel ?? true}
+                      onChange={() => toggleDedutivel(r)}
+                      className="w-4 h-4 rounded accent-brand-primary"
+                    />
+                    <span className={`text-[11px] ${(r.dedutivel ?? true) ? 'text-[#0F6E56]' : 'text-[#A32D2D]'}`}>
+                      {(r.dedutivel ?? true) ? 'Dedutivel' : 'Nao dedutivel'}
+                    </span>
+                  </label>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {naoDedutiveis.length > 0 && (
+        <p className="text-[11px] text-gray-500 pt-1">
+          {naoDedutiveis.length} rubrica{naoDedutiveis.length !== 1 ? 's' : ''} marcadas como nao dedutiveis: {naoDedutiveis.map((r) => r.codigo).join(', ')}
+        </p>
+      )}
     </div>
   )
 }

@@ -40,6 +40,11 @@ interface Imovel {
   areaMt2: string | null
   estado: string
   fracoes?: Fracao[]
+  // Aquisicao
+  tipoPropriedade: string
+  valorAquisicao: string | null
+  dataAquisicao: string | null
+  taxaDepreciacaoAnual: string | null
   // Contrato fields
   fracaoAutonoma: string | null
   andar: string | null
@@ -81,6 +86,7 @@ const TIPO_OPTIONS = [
   { value: 'MORADIA', label: 'Moradia' },
   { value: 'LOJA', label: 'Loja' },
   { value: 'ESCRITORIO', label: 'Escritorio' },
+  { value: 'INDUSTRIAL', label: 'Industrial' },
   { value: 'OUTRO', label: 'Outro' },
 ]
 
@@ -104,7 +110,7 @@ const MODELO_DESPESAS_OPTIONS = [
   { value: 'INDIVIDUAL', label: 'Individual' },
 ]
 
-type TabKey = 'geral' | 'contrato' | 'proprietarios' | 'equipamentos'
+type TabKey = 'geral' | 'aquisicao' | 'contrato' | 'proprietarios' | 'equipamentos'
 
 const emptyForm = {
   codigo: '', nome: '', tipo: 'APARTAMENTO', localizacao: '', morada: '', nifProprietario: '', estado: 'ACTIVO', valorPatrimonial: '', areaMt2: '',
@@ -115,6 +121,19 @@ const emptyForm = {
   nomeProprietario2: '', nifProprietario2: '', ccProprietario2: '',
   regimeCasamento: '', moradaProprietarios: '',
   equipamentos: '',
+  tipoPropriedade: 'ARRENDADO', valorAquisicao: '', dataAquisicao: '', taxaDepreciacaoAnual: '',
+}
+
+const TIPO_PROPRIEDADE_OPTIONS = [
+  { value: 'ARRENDADO', label: 'Arrendado' },
+  { value: 'ADQUIRIDO', label: 'Adquirido' },
+]
+
+// Taxas de depreciacao DR 25/2009:
+// - Edificios nao industriais (habitacao, escritorios, lojas): 2% (50 anos)
+// - Edificios industriais: 5% (20 anos)
+function depreciacaoImovelDefaultPorTipo(tipo: string): string {
+  return tipo === 'INDUSTRIAL' ? '5' : '2'
 }
 const TIPO_QUARTO_OPTIONS = [
   { value: '', label: 'Selecionar...' },
@@ -225,16 +244,23 @@ export default function ImoveisPage() {
       ccProprietario2: im.ccProprietario2 ?? '',
       regimeCasamento: im.regimeCasamento ?? '', moradaProprietarios: im.moradaProprietarios ?? '',
       equipamentos: im.equipamentos ?? '',
+      tipoPropriedade: im.tipoPropriedade ?? 'ARRENDADO',
+      valorAquisicao: im.valorAquisicao ?? '',
+      dataAquisicao: im.dataAquisicao ? String(im.dataAquisicao).split('T')[0] : '',
+      taxaDepreciacaoAnual: im.taxaDepreciacaoAnual ?? '',
     })
     setActiveTab('geral')
     setModalOpen(true)
   }
 
   async function handleSave() {
-    if (editId) {
-      await fetch(`/api/imoveis/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-    } else {
-      await fetch('/api/imoveis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    const url = editId ? `/api/imoveis/${editId}` : '/api/imoveis'
+    const method = editId ? 'PUT' : 'POST'
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      alert(j.error || 'Erro ao guardar o imovel')
+      return
     }
     setModalOpen(false)
     fetchData()
@@ -531,7 +557,7 @@ export default function ImoveisPage() {
         footer={<div className="flex gap-2 ml-auto"><Button variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button><Button onClick={handleSave}>{editId ? 'Guardar' : 'Criar'}</Button></div>}>
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid #e5e7eb', paddingBottom: '0' }}>
-          {([['geral', 'Geral'], ['contrato', 'Contrato'], ['proprietarios', 'Proprietarios'], ['equipamentos', 'Equipamentos']] as const).map(([key, label]) => (
+          {([['geral', 'Geral'], ['aquisicao', 'Aquisicao'], ['contrato', 'Contrato'], ['proprietarios', 'Proprietarios'], ['equipamentos', 'Equipamentos']] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
@@ -564,6 +590,60 @@ export default function ImoveisPage() {
             <Select label="Estado" options={ESTADO_OPTIONS} value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })} />
             <Input label="Valor patrimonial / Market value (€)" type="number" step="0.01" value={form.valorPatrimonial} onChange={(e) => setForm({ ...form, valorPatrimonial: e.target.value })} />
             <Input label="Area (m²)" type="number" step="0.01" value={form.areaMt2} onChange={(e) => setForm({ ...form, areaMt2: e.target.value })} />
+          </div>
+        )}
+
+        {/* Tab: Aquisicao */}
+        {activeTab === 'aquisicao' && (
+          <div className="space-y-3">
+            <Select
+              label="Tipo de propriedade"
+              options={TIPO_PROPRIEDADE_OPTIONS}
+              value={form.tipoPropriedade}
+              onChange={(e) => {
+                const novo = e.target.value
+                const nextForm = { ...form, tipoPropriedade: novo }
+                if (novo === 'ADQUIRIDO' && !form.taxaDepreciacaoAnual) {
+                  nextForm.taxaDepreciacaoAnual = depreciacaoImovelDefaultPorTipo(form.tipo)
+                }
+                setForm(nextForm)
+              }}
+            />
+            {form.tipoPropriedade === 'ADQUIRIDO' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Valor de aquisicao (EUR)"
+                    type="number"
+                    step="0.01"
+                    value={form.valorAquisicao}
+                    onChange={(e) => setForm({ ...form, valorAquisicao: e.target.value })}
+                  />
+                  <Input
+                    label="Data de aquisicao"
+                    type="date"
+                    value={form.dataAquisicao}
+                    onChange={(e) => setForm({ ...form, dataAquisicao: e.target.value })}
+                  />
+                </div>
+                <Input
+                  label="Taxa de depreciacao anual (%)"
+                  type="number"
+                  step="0.01"
+                  value={form.taxaDepreciacaoAnual}
+                  onChange={(e) => setForm({ ...form, taxaDepreciacaoAnual: e.target.value })}
+                />
+                <p className="text-[11px] text-gray-500">
+                  Sugestao: 2% para edificios nao industriais (50 anos, DR 25/2009).
+                  Edificios industriais 5% (20 anos). Construcoes leves 10% (10 anos).
+                </p>
+              </>
+            )}
+            {form.tipoPropriedade === 'ARRENDADO' && (
+              <p className="text-[12px] text-gray-500">
+                Imoveis arrendados nao geram depreciacao (a renda paga e custo dedutivel).
+              </p>
+            )}
           </div>
         )}
 

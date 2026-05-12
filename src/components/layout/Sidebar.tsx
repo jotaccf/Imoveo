@@ -21,6 +21,7 @@ import {
   FileSignature,
   ClipboardList,
   Bell,
+  Car,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -106,6 +107,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       items: [
         { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
         { label: 'Imoveis', href: '/imoveis', icon: <Building2 size={16} />, permission: 'imoveis:ver' },
+        { label: 'Activos fixos', href: '/activos-fixos', icon: <Car size={16} />, permission: 'imoveis:ver' },
         { label: 'Contratos', href: '/contratos', icon: <FileSignature size={16} />, permission: 'imoveis:ver' },
         { label: 'Dashboard Contratos', href: '/contratos/dashboard', icon: <ClipboardList size={16} />, permission: 'imoveis:ver' },
       ],

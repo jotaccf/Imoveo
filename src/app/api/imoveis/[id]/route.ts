@@ -6,6 +6,9 @@ import { requirePermission, type Role } from '@/lib/permissions'
 // Codigos de centros de custo protegidos (nao editaveis/apagaveis)
 const CODIGOS_PROTEGIDOS = ['CC-GERAL', 'CC-PESSOAL']
 
+// Tipos de imovel que admitem quartos / fracoes
+const TIPOS_COM_QUARTOS = ['APARTAMENTO', 'MORADIA', 'OUTRO']
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
@@ -13,13 +16,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     requirePermission(session.user.role as Role, 'imoveis:editar')
 
     const { id } = await params
-    const imovel = await prisma.imovel.findUnique({ where: { id } })
+    const imovel = await prisma.imovel.findUnique({ where: { id }, include: { fracoes: true } })
     if (!imovel) return Response.json({ error: 'Nao encontrado' }, { status: 404 })
     if (CODIGOS_PROTEGIDOS.includes(imovel.codigo)) {
       return Response.json({ error: 'Este centro de custo nao pode ser editado' }, { status: 403 })
     }
 
     const body = await req.json()
+
+    // Se muda para tipo sem quartos e tem fracoes associadas, bloquear com mensagem clara.
+    if (body.tipo !== undefined && body.tipo !== imovel.tipo && !TIPOS_COM_QUARTOS.includes(body.tipo) && imovel.fracoes.length > 0) {
+      return Response.json({
+        error: `Imovel tem ${imovel.fracoes.length} quarto(s) associado(s). Remove primeiro os quartos antes de mudar para o tipo ${body.tipo}.`,
+      }, { status: 409 })
+    }
     const data: Record<string, unknown> = {}
     if (body.codigo !== undefined) data.codigo = body.codigo
     if (body.nome !== undefined) data.nome = body.nome
@@ -42,12 +52,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.incluirProprietarios !== undefined) data.incluirProprietarios = body.incluirProprietarios
     // DateTime field
     if (body.dataContratoArrendamento !== undefined) data.dataContratoArrendamento = body.dataContratoArrendamento ? new Date(body.dataContratoArrendamento) : null
+    // Tipo propriedade + depreciacao
+    if (body.tipoPropriedade !== undefined) data.tipoPropriedade = body.tipoPropriedade
+    if (body.valorAquisicao !== undefined) data.valorAquisicao = body.valorAquisicao ? Number(body.valorAquisicao) : null
+    if (body.dataAquisicao !== undefined) data.dataAquisicao = body.dataAquisicao ? new Date(body.dataAquisicao) : null
+    if (body.taxaDepreciacaoAnual !== undefined) data.taxaDepreciacaoAnual = body.taxaDepreciacaoAnual ? Number(body.taxaDepreciacaoAnual) : null
 
     const updated = await prisma.imovel.update({ where: { id }, data })
     return Response.json({ data: updated })
   } catch (e) {
+    console.error('[/api/imoveis/[id]] PUT error:', e)
     if ((e as Error).message?.startsWith('Acesso negado')) return Response.json({ error: (e as Error).message }, { status: 403 })
-    return Response.json({ error: 'Erro interno' }, { status: 500 })
+    return Response.json({ error: 'Erro interno', details: String(e) }, { status: 500 })
   }
 }
 
