@@ -146,9 +146,9 @@ export async function GET() {
     const rdaRubrica = await prisma.rubrica.findUnique({ where: { codigo: 'RDA' } })
     const rdaRubricaId = rdaRubrica?.id ?? ''
 
-    // Imóveis activos com suas fracoes
+    // Imoveis activos com suas fracoes — exclui centros de custo (GERAL/PESSOAL)
     const imoveisDb = await prisma.imovel.findMany({
-      where: { ativo: true },
+      where: { ativo: true, tipo: { notIn: ['GERAL', 'PESSOAL'] } },
       include: {
         fracoes: { select: { id: true, estado: true } },
       },

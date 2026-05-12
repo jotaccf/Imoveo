@@ -104,11 +104,13 @@ interface Transaccao {
 }
 
 async function loadTransaccoes(dateMin: Date, dateMax: Date): Promise<Transaccao[]> {
-  // Faturas confirmadas (apenas tipo RECEITA ou GASTO; schema actual não tem AMBOS)
+  // Alargar janela 1 mes a tras (RECEITA shift +1: Dez de ano-1 conta como Jan de ano)
+  const queryDateMin = new Date(dateMin.getFullYear(), dateMin.getMonth() - 1, 1)
+
   const classificacoes = await prisma.faturaClassificacao.findMany({
     where: {
       confirmado: true,
-      fatura: { dataFatura: { gte: dateMin, lt: dateMax } },
+      fatura: { dataFatura: { gte: queryDateMin, lt: dateMax } },
     },
     include: {
       fatura: { select: { dataFatura: true, totalComIva: true } },
@@ -116,21 +118,25 @@ async function loadTransaccoes(dateMin: Date, dateMax: Date): Promise<Transaccao
     },
   })
 
-  // Lancamentos manuais: alargar janela 1 mes a tras para apanhar Dez do ano anterior
-  // (receitas de renda são lançadas no mês ANTERIOR ao da renda — ver shift abaixo)
-  const lmDateMin = new Date(dateMin.getFullYear(), dateMin.getMonth() - 1, 1)
   const lancamentos = await prisma.lancamentoManual.findMany({
-    where: { dataDoc: { gte: lmDateMin, lt: dateMax } },
+    where: { dataDoc: { gte: queryDateMin, lt: dateMax } },
     include: { rubrica: { select: { tipo: true } } },
   })
+
+  // RECEITA: lançamento/fatura em mês N representa receita do mês N+1
+  // (renda cobrada em Janeiro = documento de Dezembro). Aplicar shift a ambas
+  // as fontes para consistência com analise-data.ts (linhas 321-330 e 352-361).
+  const shiftReceita = (d: Date): Date =>
+    new Date(d.getFullYear(), d.getMonth() + 1, 1)
 
   const out: Transaccao[] = []
   for (const fc of classificacoes) {
     const tipo = fc.rubrica.tipo
     if (tipo !== 'RECEITA' && tipo !== 'GASTO') continue
     const valor = fc.valorAtribuido ? toNum(fc.valorAtribuido) : toNum(fc.fatura.totalComIva)
+    const dataFatura = new Date(fc.fatura.dataFatura)
     out.push({
-      data: new Date(fc.fatura.dataFatura),
+      data: tipo === 'RECEITA' ? shiftReceita(dataFatura) : dataFatura,
       imovelId: fc.imovelId,
       valor,
       isReceita: tipo === 'RECEITA',
@@ -139,16 +145,9 @@ async function loadTransaccoes(dateMin: Date, dateMax: Date): Promise<Transaccao
   for (const lm of lancamentos) {
     const tipo = lm.rubrica.tipo
     if (tipo !== 'RECEITA' && tipo !== 'GASTO') continue
-    // Lancamentos manuais de RECEITA seguem regra de renda: lançamento em mês N
-    // representa a renda do mês N+1 (renda cobrada em Janeiro = lançamento de Dezembro).
-    // Ver analise-data.ts linhas 352-361 para padrão consistente com o dashboard.
     const dataDoc = new Date(lm.dataDoc)
-    const dataEfectiva =
-      tipo === 'RECEITA'
-        ? new Date(dataDoc.getFullYear(), dataDoc.getMonth() + 1, 1)
-        : dataDoc
     out.push({
-      data: dataEfectiva,
+      data: tipo === 'RECEITA' ? shiftReceita(dataDoc) : dataDoc,
       imovelId: lm.imovelId,
       valor: toNum(lm.totalComIva),
       isReceita: tipo === 'RECEITA',
@@ -289,8 +288,9 @@ export async function loadEvolucaoData(): Promise<EvolucaoData> {
   anosLectivosOut.sort((a, b) => b.anoLectivo.localeCompare(a.anoLectivo))
 
   // -------------------- Imoveis: histórico anual + delta YoY --------------------
+  // GERAL/PESSOAL sao centros de custo (buckets), nao imoveis reais
   const imoveisDb = await prisma.imovel.findMany({
-    where: { ativo: true },
+    where: { ativo: true, tipo: { notIn: ['GERAL', 'PESSOAL'] } },
     select: { id: true, codigo: true, nome: true },
     orderBy: { codigo: 'asc' },
   })

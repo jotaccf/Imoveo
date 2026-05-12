@@ -52,9 +52,9 @@ export async function GET() {
     hoje.setHours(0, 0, 0, 0)
     const limite = new Date(hoje.getTime() + JANELA_DIAS * 24 * 60 * 60 * 1000)
 
-    // Total de quartos (fracoes de imoveis activos)
+    // Total de quartos (fracoes de imoveis activos) — GERAL/PESSOAL sao centros de custo
     const imoveisAtivos = await prisma.imovel.findMany({
-      where: { ativo: true },
+      where: { ativo: true, tipo: { notIn: ['GERAL', 'PESSOAL'] } },
       include: { fracoes: { select: { id: true } } },
     })
     const totalQuartos = imoveisAtivos.reduce((s, im) => s + im.fracoes.length, 0)
@@ -64,7 +64,7 @@ export async function GET() {
       where: {
         estado: 'ATIVO',
         dataFim: { gte: hoje, lte: limite },
-        imovel: { ativo: true },
+        imovel: { ativo: true, tipo: { notIn: ['GERAL', 'PESSOAL'] } },
       },
       include: {
         fracao: { select: { id: true, nome: true, renda: true } },

@@ -61,8 +61,9 @@ export async function GET() {
     const hoje = new Date()
     const al = getAnoLectivoBoundaries(hoje)
 
+    // GERAL/PESSOAL sao centros de custo (buckets), nao imoveis reais
     const imoveisDb = await prisma.imovel.findMany({
-      where: { ativo: true },
+      where: { ativo: true, tipo: { notIn: ['GERAL', 'PESSOAL'] } },
       select: { id: true, nome: true },
       orderBy: { codigo: 'asc' },
     })
